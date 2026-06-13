@@ -6,21 +6,21 @@
 ## Learning Goals
 By the end of this lesson students will be able to:
 1. Explain what Appium is and how Mobilewright wraps it
-2. Connect an Android device/emulator and inspect UI elements
+2. Upload an APK to Sauce Labs and inspect UI elements with Appium Inspector
 3. Write Mobilewright test cases using `testID`-based locators
 4. Use the re-seed button to reset app state between test runs
-5. Run a small test suite and interpret results
+5. Run a small test suite against a real cloud device on Sauce Labs
 
 ---
 
 ## Prerequisites (done before the lesson)
-- Android Studio installed with at least one AVD (API 33+) or a physical device with USB debugging enabled
 - Node.js 18+ and npm installed
-- Appium 2 installed globally: `npm install -g appium`
-- Appium UiAutomator2 driver: `appium driver install uiautomator2`
-- Mobilewright installed: `npm install -g mobilewright` *(or per project)*
-- The FHB Library Android app built and installed on the device/emulator
-  - Run `npx expo run:android` from the project root once to install the debug APK
+- A Sauce Labs account — free trial at https://saucelabs.com
+  - **`SAUCE_USERNAME`** and **`SAUCE_ACCESS_KEY`** set as environment variables
+- Mobilewright installed per project: `npm install mobilewright`
+- The FHB Library APK downloaded from GitHub Actions
+  - Go to the repo → Actions → latest "Build Debug APK" run → Artifacts → download `FHBLibrary-debug-apk.zip`
+  - Unzip to get `app-debug.apk`
 
 ---
 
@@ -39,10 +39,13 @@ Mobilewright (clean API + AI helpers)
      ↓
 Appium Server (WebDriver protocol)
      ↓
-UiAutomator2 Driver
+Sauce Labs Real Device Cloud
      ↓
-Android device / emulator
+Real Android device in a data centre
 ```
+
+### What is Sauce Labs?
+Sauce Labs is a cloud platform that provides real physical Android and iOS devices you can run Appium tests against — no local emulator or USB cable needed. You upload your APK once, and Sauce Labs installs it on the device for each test session.
 
 ### The app we are testing
 The **FHB Library App** is a library management system. It manages books, members, loans, and reservations — all stored locally in SQLite on the device. There is no backend.
@@ -51,53 +54,85 @@ The **FHB Library App** is a library management system. It manages books, member
 
 ## Block 1 — Setup & First Command (10 min)
 
-### Step 1: Start the emulator
-Open Android Studio → Device Manager → Start your AVD.
-Or start it from the command line:
+### Step 1: Set your Sauce Labs credentials
+Store these as environment variables — never hard-code them in test files.
+
+**macOS / Linux:**
 ```bash
-emulator -avd Pixel_7_API_33
+export SAUCE_USERNAME=your-username
+export SAUCE_ACCESS_KEY=your-access-key
 ```
 
-### Step 2: Verify ADB sees the device
-```bash
-adb devices
-# Expected output:
-# emulator-5554   device
+**Windows (PowerShell):**
+```powershell
+$env:SAUCE_USERNAME = "your-username"
+$env:SAUCE_ACCESS_KEY = "your-access-key"
 ```
 
-### Step 3: Start Appium server
-Open a terminal and run:
-```bash
-appium
-```
-Leave this terminal running. Appium listens on `http://localhost:4723` by default.
+Find your access key at: https://app.saucelabs.com/user-settings
 
-### Step 4: Create a test project
+### Step 2: Upload the APK to Sauce Labs App Storage
+Sauce Labs needs the APK in its storage before tests can run.
+
+```bash
+curl -u "$SAUCE_USERNAME:$SAUCE_ACCESS_KEY" \
+  -X POST "https://api.eu-central-1.saucelabs.com/v1/storage/upload" \
+  -H "Content-Type: multipart/form-data" \
+  -F "payload=@app-debug.apk" \
+  -F "name=FHBLibrary.apk"
+```
+
+> **Note:** Use `api.us-west-1.saucelabs.com` if your account is on the US data centre.
+
+The response contains a `storage:filename` ID — copy it, you will need it for the capabilities:
+```json
+{ "item": { "id": "abc123...", "storage_id": "abc123..." } }
+```
+
+You can also upload via the Sauce Labs web UI: **App Management → Upload App**.
+
+### Step 3: Create a test project
 ```bash
 mkdir library-tests && cd library-tests
 npm init -y
 npm install mobilewright
 ```
 
-### Step 5: Write your first test (`tests/smoke.test.ts`)
+### Step 4: Write your first test (`tests/smoke.test.ts`)
+
 ```typescript
 import { createDriver, by, expect } from 'mobilewright';
 
+// Sauce Labs EU endpoint — change to us-west-1 if on US data centre
+const SAUCE_URL =
+  `https://${process.env.SAUCE_USERNAME}:${process.env.SAUCE_ACCESS_KEY}` +
+  `@ondemand.eu-central-1.saucelabs.com/wd/hub`;
+
 const CAPS = {
   platformName: 'Android',
-  'appium:deviceName': 'emulator-5554',
+  'appium:automationName': 'UiAutomator2',
+  // Target device — pick any from https://app.saucelabs.com/live/mobile/virtual
+  'appium:deviceName': 'Google Pixel 7',
+  'appium:platformVersion': '13',
+  // APK uploaded in Step 2
+  'sauce:options': {
+    appiumVersion: '2.0.0',
+    build: 'FHB Library Lesson',
+    name: 'Smoke Test',
+  },
+  'appium:app': 'storage:filename=FHBLibrary.apk',
   'appium:appPackage': 'com.fhb.libraryandroid',
   'appium:appActivity': '.MainActivity',
-  'appium:automationName': 'UiAutomator2',
-  'appium:noReset': true,
+  'appium:noReset': false,   // fresh install each session on Sauce Labs
+  'appium:newCommandTimeout': 120,
 };
 
 describe('Library App - Smoke', () => {
   let driver: any;
 
   beforeAll(async () => {
-    driver = await createDriver({ serverUrl: 'http://localhost:4723', capabilities: CAPS });
-  });
+    driver = await createDriver({ serverUrl: SAUCE_URL, capabilities: CAPS });
+  }, 120_000); // allow 2 min for device allocation
 
   afterAll(async () => {
     await driver.quit();
@@ -115,7 +150,7 @@ Run it:
 npx mobilewright run tests/smoke.test.ts
 ```
 
-**Expected result:** Test passes — the books list is visible after launch.
+**Expected result:** Sauce Labs allocates a real Pixel 7, installs the APK, and the test passes. You can watch the session live at https://app.saucelabs.com/live/mobile.
 
 ---
 
@@ -146,12 +181,14 @@ const returnBtn = await driver.findElement(by.accessibilityId('return-button-7')
 #### 3. Text / XPath (fallback)
 Use sparingly — breaks easily when copy changes.
 ```typescript
-const heading = await driver.findElement(by.xpath('//android.widget.TextView[@text="Books"]'));
+const heading = await driver.findElement(
+  by.xpath('//android.widget.TextView[@text="Books"]')
+);
 ```
 
 ### Complete testID reference for this app
 
-| Element | testID |
+| Element | testID / locator |
 |---|---|
 | Books list (FlatList) | `books-list` |
 | Book row | `book-item-{id}` |
@@ -183,16 +220,39 @@ const heading = await driver.findElement(by.xpath('//android.widget.TextView[@te
 | Bottom tab — Reservations | accessibility label `tab-reservations` |
 | Bottom tab — More | accessibility label `tab-more` |
 
-### Exercise 2A (hands-on, ~5 min)
-Use Appium Inspector to confirm the `content-desc` of a few elements:
-1. Connect Inspector to `http://localhost:4723`
-2. Use the same capability JSON from Block 1
-3. Click "Start Session", then tap on a book row
-4. In the attribute panel, find `content-desc` — it should read `book-item-1` (or similar)
+### Exercise 2A — Inspect elements with Appium Inspector (hands-on, ~5 min)
+Appium Inspector can connect directly to a live Sauce Labs session.
+
+1. Download Appium Inspector: https://github.com/appium/appium-inspector/releases
+2. Set the Remote Path to `/wd/hub` and the server to `ondemand.eu-central-1.saucelabs.com`
+3. Paste the same capabilities JSON from Block 1 (add your credentials to `sauce:options`)
+4. Click **Start Session** — Inspector opens a live view of the device
+5. Click on a book row → find `content-desc` in the attribute panel (should read `book-item-1`)
 
 ---
 
 ## Block 3 — Writing Test Cases (15 min)
+
+Add a shared driver setup file (`tests/setup.ts`) to avoid repeating the Sauce Labs config:
+
+```typescript
+// tests/setup.ts
+export const SAUCE_URL =
+  `https://${process.env.SAUCE_USERNAME}:${process.env.SAUCE_ACCESS_KEY}` +
+  `@ondemand.eu-central-1.saucelabs.com/wd/hub`;
+
+export const BASE_CAPS = {
+  platformName: 'Android',
+  'appium:automationName': 'UiAutomator2',
+  'appium:deviceName': 'Google Pixel 7',
+  'appium:platformVersion': '13',
+  'appium:app': 'storage:filename=FHBLibrary.apk',
+  'appium:appPackage': 'com.fhb.libraryandroid',
+  'appium:appActivity': '.MainActivity',
+  'appium:noReset': false,
+  'appium:newCommandTimeout': 120,
+};
+```
 
 ### Scenario 1: Books list loads with seed data
 
@@ -230,7 +290,6 @@ test('borrowing a book decreases available copies', async () => {
   await driver.findElement(by.accessibilityId('borrow-button-1')).click();
 
   // An Alert appears with member names — pick the first one
-  // On Android, Alert buttons are native dialogs
   await driver.findElement(by.xpath('//android.widget.Button[1]')).click();
 
   // Wait for success alert and dismiss
@@ -262,8 +321,8 @@ test('returning an overdue loan shows a late fee', async () => {
   expect(overdueLoans.length).toBeGreaterThan(0);
   await overdueLoans[0].click();
 
-  // Tap Return Book
-  const loanId = /* known from seed */ 3;
+  // Tap Return Book (loan id 3 is the seeded overdue loan)
+  const loanId = 3;
   await driver.findElement(by.accessibilityId(`return-button-${loanId}`)).click();
 
   // Confirm in the dialog
@@ -284,12 +343,11 @@ test('returning an overdue loan shows a late fee', async () => {
 
 ```typescript
 test('reserving a fully-borrowed book creates a pending reservation', async () => {
-  // Book #1 should have 0 available copies after Scenario 2 reduced it
   await driver.findElement(by.accessibilityId('tab-books')).click();
   await driver.findElement(by.accessibilityId('book-item-1')).click();
 
-  // Borrow button should be disabled; reserve should be enabled
-  await driver.findElement(by.accessibilityId(`reserve-button-1`)).click();
+  // Reserve the book
+  await driver.findElement(by.accessibilityId('reserve-button-1')).click();
 
   // Pick the first member from the alert
   await driver.findElement(by.xpath('//android.widget.Button[1]')).click();
@@ -309,7 +367,9 @@ test('reserving a fully-borrowed book creates a pending reservation', async () =
 ## Block 4 — Re-seed Workflow (10 min)
 
 ### Why re-seed?
-Tests that mutate data (borrow a book, add a member) leave the app in a different state. Without resetting, tests depend on each other — a classic problem in test automation called **test pollution**.
+Tests that mutate data (borrow a book, add a member) leave the app in a different state. Without resetting, tests depend on each other — a classic problem called **test pollution**.
+
+On Sauce Labs, `'appium:noReset': false` gives a fresh app install at the start of each **session** — but not between individual tests within a session. The re-seed button handles that within-session reset.
 
 The re-seed button wipes all data and inserts the original 10 books, 8 members, 3 loans and 2 reservations.
 
@@ -341,13 +401,26 @@ async function reseedApp(driver: any) {
 ### Using it in your test suite
 
 ```typescript
+import { createDriver, by, expect } from 'mobilewright';
+import { SAUCE_URL, BASE_CAPS } from './setup';
+
 describe('Library App - Full Suite', () => {
   let driver: any;
 
   beforeAll(async () => {
-    driver = await createDriver({ serverUrl: 'http://localhost:4723', capabilities: CAPS });
+    driver = await createDriver({
+      serverUrl: SAUCE_URL,
+      capabilities: {
+        ...BASE_CAPS,
+        'sauce:options': {
+          appiumVersion: '2.0.0',
+          build: 'FHB Library - Full Suite',
+          name: 'Library Full Suite',
+        },
+      },
+    });
     await reseedApp(driver); // guaranteed clean state
-  });
+  }, 120_000);
 
   afterAll(async () => { await driver.quit(); });
 
@@ -357,33 +430,41 @@ describe('Library App - Full Suite', () => {
 
 ### Exercise 4A
 1. Add `beforeAll` with `reseedApp` to your test file
-2. Run the full suite twice in a row — results should be identical both times
-3. Without `reseedApp`, run twice — observe how the second run fails
+2. Run the full suite twice — results should be identical both times
+3. Remove the `reseedApp` call, run twice — observe how the second run fails
 
 ---
 
-## Block 5 — Running the Suite & Discussion (5 min)
+## Block 5 — Running the Suite & Viewing Results (5 min)
 
-### Final suite structure (`tests/library.test.ts`)
-```
-describe('Library App - Full Suite')
-  ├── beforeAll: launch driver + reseed
-  ├── test: books list loads with 10 books        ✓
-  ├── test: borrow a book decreases copies        ✓
-  ├── test: return overdue loan shows fee         ✓
-  ├── test: place reservation                     ✓
-  └── afterAll: quit driver
-```
-
-Run:
+### Run the full suite
 ```bash
 npx mobilewright run tests/library.test.ts --reporter verbose
 ```
 
+### Final suite structure
+```
+describe('Library App - Full Suite')
+  ├── beforeAll: allocate Sauce Labs device + reseed
+  ├── test: books list loads with 10 books        ✓
+  ├── test: borrow a book decreases copies        ✓
+  ├── test: return overdue loan shows fee         ✓
+  ├── test: place reservation                     ✓
+  └── afterAll: quit driver (releases device)
+```
+
+### Viewing results on Sauce Labs
+After the run, go to https://app.saucelabs.com/test-results — you will see:
+- **Video recording** of every test step on the real device
+- **Screenshots** at each assertion
+- **Appium logs** for debugging failures
+- **Pass/fail status** per test
+
 ### Interpreting results
 - **PASS** — assertion met
-- **FAIL** — assertion not met; look at the error message and screenshot Mobilewright saves automatically
+- **FAIL** — assertion not met; watch the video replay to see exactly what happened on device
 - **TIMEOUT** — element not found within the wait timeout; check the `testID` spelling
+- **Error: invalid credentials** — check `SAUCE_USERNAME` / `SAUCE_ACCESS_KEY` env vars
 
 ### Common issues & fixes
 
@@ -391,43 +472,64 @@ npx mobilewright run tests/library.test.ts --reporter verbose
 |---|---|---|
 | `NoSuchElementException` on `book-item-1` | App still loading | Add `await driver.waitForElement(...)` |
 | Alert button not found | Dialog dismissed before search | Increase Appium implicit wait |
-| Fee text missing | Test order issue — book wasn't overdue | Always reseed before the suite |
-| `appPackage` wrong | App reinstalled with different ID | Check `adb shell pm list packages | grep fhb` |
+| Fee text missing | Test order issue — book wasn't overdue | Always call `reseedApp` before tests |
+| Device allocation timeout | No matching device available | Try a different `deviceName` in capabilities |
+| APK not found | Wrong filename in `storage:filename` | Re-upload and verify the exact filename |
 
 ### Discussion prompts
 1. Why is `testID` better than XPath for production test suites?
 2. What would break if a developer renamed `book-item-{id}` to `bookRow-{id}`?
-3. How would you integrate this suite into a CI pipeline?
-4. What other scenarios would you automate for this app?
+3. What are the advantages of running on Sauce Labs vs a local emulator?
+4. How would you integrate this suite into a CI/CD pipeline so it runs on every pull request?
 
 ---
 
-## Appendix A — Capabilities Quick Reference
+## Appendix A — Sauce Labs Capabilities Reference
 
 ```json
 {
   "platformName": "Android",
-  "appium:deviceName": "emulator-5554",
+  "appium:automationName": "UiAutomator2",
+  "appium:deviceName": "Google Pixel 7",
+  "appium:platformVersion": "13",
+  "appium:app": "storage:filename=FHBLibrary.apk",
   "appium:appPackage": "com.fhb.libraryandroid",
   "appium:appActivity": ".MainActivity",
-  "appium:automationName": "UiAutomator2",
-  "appium:noReset": true,
-  "appium:newCommandTimeout": 120
+  "appium:noReset": false,
+  "appium:newCommandTimeout": 120,
+  "sauce:options": {
+    "appiumVersion": "2.0.0",
+    "build": "FHB Library Lesson",
+    "name": "My Test Name"
+  }
 }
 ```
 
-For a physical device, replace `emulator-5554` with the device serial from `adb devices`.
+**Sauce Labs endpoints:**
 
-## Appendix B — Finding the App Package Name
+| Region | Endpoint |
+|---|---|
+| EU | `ondemand.eu-central-1.saucelabs.com/wd/hub` |
+| US West | `ondemand.us-west-1.saucelabs.com/wd/hub` |
+
+Browse available devices: https://app.saucelabs.com/live/mobile/virtual
+
+## Appendix B — Uploading the APK via curl
 
 ```bash
-# After installing via Expo
-adb shell pm list packages | findstr fhb
-# or on macOS/Linux:
-adb shell pm list packages | grep fhb
+# EU data centre
+curl -u "$SAUCE_USERNAME:$SAUCE_ACCESS_KEY" \
+  -X POST "https://api.eu-central-1.saucelabs.com/v1/storage/upload" \
+  -H "Content-Type: multipart/form-data" \
+  -F "payload=@app-debug.apk" \
+  -F "name=FHBLibrary.apk"
+
+# Check uploaded apps
+curl -u "$SAUCE_USERNAME:$SAUCE_ACCESS_KEY" \
+  "https://api.eu-central-1.saucelabs.com/v1/storage/files?q=FHBLibrary"
 ```
 
-## Appendix C — Useful Appium Commands
+## Appendix C — Useful Mobilewright / Appium Commands
 
 ```typescript
 // Wait for element (up to 10 s)
@@ -436,11 +538,15 @@ await driver.waitForElement(by.accessibilityId('books-list'), 10000);
 // Scroll down
 await driver.execute('mobile: scroll', { direction: 'down' });
 
-// Take a screenshot
+// Take a screenshot (also done automatically by Sauce Labs)
 await driver.saveScreenshot('./screenshot.png');
 
 // Get all elements matching a pattern
 const items = await driver.findElements(
   by.xpath('//*[starts-with(@content-desc, "book-item-")]')
 );
+
+// Tag a Sauce Labs test as passed/failed programmatically
+await driver.execute('sauce:job-result=passed');
+await driver.execute('sauce:job-result=failed');
 ```
