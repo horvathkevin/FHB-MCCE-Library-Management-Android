@@ -43,7 +43,7 @@ jobs:
 
       - name: Pin Gradle to 8.10.2 (required by AGP 8.x / Expo 56)
         run: |
-          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.10.2-bin.zip|' \
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.13-bin.zip|' \
             android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Make Gradle wrapper executable
