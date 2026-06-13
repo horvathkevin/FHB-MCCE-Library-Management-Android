@@ -19,6 +19,7 @@ const Tab = createBottomTabNavigator();
 const BooksStack = createNativeStackNavigator();
 const MembersStack = createNativeStackNavigator();
 const LoansStack = createNativeStackNavigator();
+const ReservationsStack = createNativeStackNavigator();
 const MoreStack = createNativeStackNavigator();
 
 function BooksNavigator() {
@@ -45,6 +46,14 @@ function LoansNavigator() {
       <LoansStack.Screen name="LoansList" component={LoansScreen} options={{ title: 'Loans' }} />
       <LoansStack.Screen name="LoanDetail" component={LoanDetailScreen} options={{ title: 'Loan Detail' }} />
     </LoansStack.Navigator>
+  );
+}
+
+function ReservationsNavigator() {
+  return (
+    <ReservationsStack.Navigator>
+      <ReservationsStack.Screen name="ReservationsList" component={ReservationsScreen} options={{ title: 'Reservations' }} />
+    </ReservationsStack.Navigator>
   );
 }
 
@@ -80,7 +89,7 @@ export function AppNavigator() {
         <Tab.Screen name="Books" component={BooksNavigator} options={{ tabBarAccessibilityLabel: 'tab-books' }} />
         <Tab.Screen name="Members" component={MembersNavigator} options={{ tabBarAccessibilityLabel: 'tab-members' }} />
         <Tab.Screen name="Loans" component={LoansNavigator} options={{ tabBarAccessibilityLabel: 'tab-loans' }} />
-        <Tab.Screen name="Reservations" component={ReservationsScreen} options={{ tabBarAccessibilityLabel: 'tab-reservations' }} />
+        <Tab.Screen name="Reservations" component={ReservationsNavigator} options={{ tabBarAccessibilityLabel: 'tab-reservations' }} />
         <Tab.Screen name="More" component={MoreNavigator} options={{ tabBarAccessibilityLabel: 'tab-more' }} />
       </Tab.Navigator>
     </NavigationContainer>
