@@ -69,12 +69,8 @@ jobs:
       - name: Bundle JavaScript into APK assets
         run: |
           mkdir -p android/app/src/main/assets
-          npx react-native bundle \
-            --platform android \
-            --dev false \
-            --entry-file index.ts \
-            --bundle-output android/app/src/main/assets/index.android.bundle \
-            --assets-dest android/app/src/main/res
+          npx expo export --platform android
+          cp dist/_expo/static/js/android/*.hbc android/app/src/main/assets/index.android.bundle
 
       - name: Build debug APK
         working-directory: android

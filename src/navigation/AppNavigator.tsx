@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text } from 'react-native';
 
 import { BooksScreen } from '../screens/BooksScreen';
@@ -16,10 +16,10 @@ import { SearchScreen } from '../screens/SearchScreen';
 import { ReportsScreen } from '../screens/ReportsScreen';
 
 const Tab = createBottomTabNavigator();
-const BooksStack = createStackNavigator();
-const MembersStack = createStackNavigator();
-const LoansStack = createStackNavigator();
-const MoreStack = createStackNavigator();
+const BooksStack = createNativeStackNavigator();
+const MembersStack = createNativeStackNavigator();
+const LoansStack = createNativeStackNavigator();
+const MoreStack = createNativeStackNavigator();
 
 function BooksNavigator() {
   return (

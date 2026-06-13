@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { AppProvider } from './src/context/AppContext';
 import { getDatabase } from './src/db/database';
@@ -28,11 +27,9 @@ export default function App() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <AppProvider>
-        <AppNavigator />
-      </AppProvider>
-    </GestureHandlerRootView>
+    <AppProvider>
+      <AppNavigator />
+    </AppProvider>
   );
 }
 
