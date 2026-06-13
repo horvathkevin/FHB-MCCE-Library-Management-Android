@@ -41,6 +41,11 @@ jobs:
         env:
           EXPO_NO_TELEMETRY: 1
 
+      - name: Pin Gradle to 8.10.2 (required by AGP 8.x / Expo 56)
+        run: |
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.10.2-bin.zip|' \
+            android/gradle/wrapper/gradle-wrapper.properties
+
       - name: Make Gradle wrapper executable
         run: chmod +x android/gradlew
 
