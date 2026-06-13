@@ -15,15 +15,26 @@
     "react-native-screens": "^4.25.2"
   },
   "devDependencies": {
+    "@mobilewright/test": "^0.0.44",
     "@react-native-community/cli": "^20.1.3",
     "@types/react": "~19.2.2",
+    "mobilewright": "^0.0.44",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test:e2e": "mobilewright test",
+    "test:e2e:books": "mobilewright test e2e/books.test.ts",
+    "test:e2e:members": "mobilewright test e2e/members.test.ts",
+    "test:e2e:loans": "mobilewright test e2e/loans.test.ts",
+    "test:e2e:reservations": "mobilewright test e2e/reservations.test.ts",
+    "test:e2e:search": "mobilewright test e2e/search.test.ts",
+    "test:e2e:reports": "mobilewright test e2e/reports.test.ts",
+    "test:e2e:seed": "mobilewright test e2e/seed.test.ts",
+    "test:e2e:report": "mobilewright show-report"
   },
   "private": true
 }
