@@ -1,20 +1,41 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { AppNavigator } from './src/navigation/AppNavigator';
+import { AppProvider } from './src/context/AppContext';
+import { getDatabase } from './src/db/database';
+import { isDatabaseSeeded, seedDatabase } from './src/db/seed';
 
 export default function App() {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    async function init() {
+      await getDatabase();
+      const seeded = await isDatabaseSeeded();
+      if (!seeded) await seedDatabase();
+      setReady(true);
+    }
+    init();
+  }, []);
+
+  if (!ready) {
+    return (
+      <View style={styles.splash} testID="app-loading">
+        <ActivityIndicator size="large" color="#2563eb" />
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AppProvider>
+        <AppNavigator />
+      </AppProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  splash: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb' },
 });
