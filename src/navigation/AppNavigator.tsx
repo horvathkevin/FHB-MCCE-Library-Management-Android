@@ -12,6 +12,7 @@ import { LoansScreen } from '../screens/LoansScreen';
 import { LoanDetailScreen } from '../screens/LoanDetailScreen';
 import { ReservationsScreen } from '../screens/ReservationsScreen';
 import { MoreScreen } from '../screens/MoreScreen';
+import { ReseedConfirmScreen } from '../screens/ReseedConfirmScreen';
 import { SearchScreen } from '../screens/SearchScreen';
 import { ReportsScreen } from '../screens/ReportsScreen';
 
@@ -61,6 +62,7 @@ function MoreNavigator() {
   return (
     <MoreStack.Navigator>
       <MoreStack.Screen name="MoreMenu" component={MoreScreen} options={{ title: 'More' }} />
+      <MoreStack.Screen name="ReseedConfirm" component={ReseedConfirmScreen} options={{ title: 'Reset Database' }} />
       <MoreStack.Screen name="Search" component={SearchScreen} options={{ title: 'Search' }} />
       <MoreStack.Screen name="Reports" component={ReportsScreen} options={{ title: 'Reports' }} />
     </MoreStack.Navigator>

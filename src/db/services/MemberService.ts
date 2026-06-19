@@ -40,6 +40,8 @@ async function nextMemberNumber(): Promise<string> {
 
 export async function createMember(data: { name: string; email: string }): Promise<number> {
   const db = await getDatabase();
+  const existing = await db.getFirstAsync('SELECT id FROM members WHERE email = ?', [data.email]);
+  if (existing) throw new Error('A member with this email already exists.');
   const memberNumber = await nextMemberNumber();
   const result = await db.runAsync(
     `INSERT INTO members (memberNumber, name, email, status) VALUES (?, ?, ?, 'active')`,

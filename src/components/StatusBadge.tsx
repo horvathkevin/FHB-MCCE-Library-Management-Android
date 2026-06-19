@@ -21,8 +21,8 @@ interface Props {
 export function StatusBadge({ status, testID }: Props) {
   const colors = COLORS[status] ?? COLORS.inactive;
   return (
-    <View style={[styles.badge, { backgroundColor: colors.bg }]} testID={testID}>
-      <Text style={[styles.text, { color: colors.text }]}>{status.toUpperCase()}</Text>
+    <View style={[styles.badge, { backgroundColor: colors.bg }]}>
+      <Text style={[styles.text, { color: colors.text }]} testID={testID}>{status.toUpperCase()}</Text>
     </View>
   );
 }

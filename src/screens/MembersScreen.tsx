@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, TextInput,
-  StyleSheet, Alert, Modal, ScrollView, ActivityIndicator,
+  StyleSheet, Alert, Modal, ScrollView, ActivityIndicator, Keyboard,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getAllMembers, createMember, Member } from '../db/services/MemberService';
@@ -38,8 +38,10 @@ export function MembersScreen({ navigation }: Props) {
     try {
       await createMember(form);
       setForm({ name: '', email: '' });
+      Keyboard.dismiss();
       setShowAdd(false);
       triggerRefresh();
+      load();
     } catch (e: any) {
       Alert.alert('Error', e.message);
     }

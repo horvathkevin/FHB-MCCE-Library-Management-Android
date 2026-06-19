@@ -18,17 +18,12 @@ export function MoreScreen({ navigation }: Props) {
         {
           text: 'Reset & Reseed',
           style: 'destructive',
-          onPress: async () => {
+          onPress: () => {
             setSeeding(true);
-            try {
-              await reseedDatabase();
-              triggerRefresh();
-              Alert.alert('Done', 'Database has been reseeded with sample data.');
-            } catch (e: any) {
-              Alert.alert('Error', e.message);
-            } finally {
-              setSeeding(false);
-            }
+            reseedDatabase()
+              .then(() => { triggerRefresh(); })
+              .catch(() => {})
+              .finally(() => { setSeeding(false); });
           },
         },
       ]

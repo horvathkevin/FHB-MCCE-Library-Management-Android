@@ -52,9 +52,9 @@ export function LoanDetailScreen({ route, navigation }: Props) {
           <Text style={styles.heading} testID={`loan-detail-book-${loanId}`}>{loan.bookTitle}</Text>
           <StatusBadge status={displayStatus as any} testID={`loan-detail-status-${loanId}`} />
         </View>
-        <Text style={styles.meta}>Member: <Text style={styles.bold} testID={`loan-detail-member-${loanId}`}>{loan.memberName}</Text> ({loan.memberNumber})</Text>
-        <Text style={styles.meta}>Borrowed: <Text style={styles.bold}>{loan.borrowDate}</Text></Text>
-        <Text style={styles.meta}>Due: <Text style={[styles.bold, overdue && styles.red]} testID={`loan-detail-due-${loanId}`}>{loan.dueDate}</Text></Text>
+        <Text style={styles.meta} testID={`loan-detail-member-${loanId}`}>{loan.memberName} ({loan.memberNumber})</Text>
+        <Text style={styles.meta}>Borrowed: {loan.borrowDate}</Text>
+        <Text style={[styles.meta, overdue && styles.red]} testID={`loan-detail-due-${loanId}`}>Due: {loan.dueDate}</Text>
         {loan.returnDate && <Text style={styles.meta}>Returned: <Text style={styles.bold}>{loan.returnDate}</Text></Text>}
         {loan.fee > 0 && (
           <Text style={[styles.meta, styles.red]} testID={`loan-detail-fee-${loanId}`}>Late fee: €{loan.fee.toFixed(2)}</Text>

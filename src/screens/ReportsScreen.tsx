@@ -110,8 +110,8 @@ export function ReportsScreen() {
 
 function StatCard({ label, value, color, testID }: { label: string; value: number | string; color?: string; testID?: string }) {
   return (
-    <View style={styles.statCard} testID={testID}>
-      <Text style={[styles.statValue, color ? { color } : {}]}>{value}</Text>
+    <View style={styles.statCard}>
+      <Text style={[styles.statValue, color ? { color } : {}]} testID={testID}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );

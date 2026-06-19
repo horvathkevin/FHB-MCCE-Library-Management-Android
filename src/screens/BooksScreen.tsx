@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, TextInput,
-  StyleSheet, Alert, Modal, ScrollView, ActivityIndicator,
+  StyleSheet, Alert, Modal, ScrollView, ActivityIndicator, Keyboard,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getAllBooks, createBook, Book } from '../db/services/BookService';
@@ -51,8 +51,10 @@ export function BooksScreen({ navigation }: Props) {
       availableCopies: parseInt(form.totalCopies) || 1,
     });
     setForm({ isbn: '', title: '', author: '', genre: '', year: '', totalCopies: '1' });
+    Keyboard.dismiss();
     setShowAdd(false);
     triggerRefresh();
+    load();
   };
 
   if (loading) return <ActivityIndicator style={styles.loader} testID="books-loading" />;

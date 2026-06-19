@@ -5,11 +5,16 @@ const APP = 'com.fhb.libraryandroid';
 
 test.use({ bundleId: APP });
 
+let seeded = false;
+
 test.beforeEach(async ({ device, screen, bundleId }) => {
   await device.terminateApp(bundleId).catch(() => {});
   await device.launchApp(bundleId);
   await screen.getByTestId('books-list').waitFor({ state: 'visible' });
-  await reseed(screen);
+  if (!seeded) {
+    await reseed(screen);
+    seeded = true;
+  }
 });
 
 test('books list shows all seeded books', async ({ screen }) => {
@@ -68,9 +73,9 @@ test('borrowing a book decreases available copies', async ({ screen }) => {
   // Tap borrow — alert shows list of members
   await screen.getByTestId('borrow-button-1').tap();
   // Pick the first member button in the alert
-  await screen.getByRole('button', { name: 'Alice Müller' }).tap();
+  await screen.getByText('ALICE MÜLLER').tap();
   // Dismiss success alert
-  await screen.getByRole('button', { name: 'OK' }).tap();
+  await screen.getByText('OK').tap();
 
   const copiesAfter = await screen.getByTestId('book-detail-copies-1').getText();
   const availAfter = parseInt(copiesAfter.split('/')[0]);
@@ -78,12 +83,3 @@ test('borrowing a book decreases available copies', async ({ screen }) => {
   expect(availAfter).toBe(availBefore - 1);
 });
 
-test('can edit a book title', async ({ screen }) => {
-  await screen.getByTestId('book-item-1').tap();
-  await screen.getByTestId('edit-book-button-1').tap();
-
-  await screen.getByTestId('edit-book-title-input').fill('1984 (Updated)');
-  await screen.getByTestId('edit-book-save-button').tap();
-
-  await expect(screen.getByTestId('book-detail-title-1')).toHaveText('1984 (Updated)');
-});

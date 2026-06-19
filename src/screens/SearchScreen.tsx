@@ -31,7 +31,6 @@ export function SearchScreen({ navigation }: Props) {
         placeholder="Search books or members..."
         value={query}
         onChangeText={handleSearch}
-        autoFocus
         testID="search-input"
         accessibilityLabel="Global search input"
       />
@@ -39,7 +38,7 @@ export function SearchScreen({ navigation }: Props) {
       {!loading && query.length >= 2 && results.length === 0 && (
         <Text style={styles.noResults} testID="search-no-results">No results for "{query}"</Text>
       )}
-      <FlatList
+      {query.trim().length >= 2 && results.length > 0 && <FlatList
         data={results}
         keyExtractor={(item, i) => `${item.type}-${item.data.id}-${i}`}
         testID="search-results-list"
@@ -50,7 +49,11 @@ export function SearchScreen({ navigation }: Props) {
               <TouchableOpacity
                 style={styles.card}
                 testID={`search-book-result-${book.id}`}
-                onPress={() => navigation.navigate('Books', { screen: 'BookDetail', params: { bookId: book.id } })}
+                onPress={() => {
+                  const parent = navigation.getParent();
+                  const nav = parent ?? navigation;
+                  nav.navigate('Books', { screen: 'BookDetail', params: { bookId: book.id } });
+                }}
               >
                 <Text style={styles.typeTag}>BOOK</Text>
                 <Text style={styles.title} testID={`search-book-title-${book.id}`}>{book.title}</Text>
@@ -71,7 +74,7 @@ export function SearchScreen({ navigation }: Props) {
             </TouchableOpacity>
           );
         }}
-      />
+      />}
     </View>
   );
 }
