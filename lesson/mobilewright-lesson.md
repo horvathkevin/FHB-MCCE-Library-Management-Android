@@ -147,24 +147,18 @@ Now that we know the locators, let's automate.
 
 ### How we find elements
 
-React Native's `testID` maps to different Android attributes depending on the component type:
-- **Lists** (`FlatList`, `ScrollView`) → `resource-id`
-- **Buttons, rows, text** (`TouchableOpacity`, `View`, `Text`) → `content-desc`
-
-We use Android's **UiAutomator** selector engine to target these attributes:
+React Native's `testID` maps to the `resource-id` attribute on Android. We use Android's **UiAutomator** selector engine to find elements:
 
 ```typescript
-// Find a list by testID (resource-id) — for FlatList / ScrollView
+// Find element by testID (resource-id)
 $('android=new UiSelector().resourceId("books-list")')
+$('android=new UiSelector().resourceId("book-item-1")')
 
-// Find a button or row by testID (content-desc) — for TouchableOpacity / View
-$('android=new UiSelector().description("book-item-1")')
-
-// Find element by visible text
+// Find element by visible text (for alert buttons, etc.)
 $('android=new UiSelector().text("OK")')
 ```
 
-> **Tip:** Use the Appium Inspector (Block 2) to check whether a given element uses `resource-id` or `content-desc` — then pick `resourceId()` or `description()` accordingly.
+> **Tip:** Use the Appium Inspector (Block 2) to verify the exact attribute name and value for any element.
 
 ### Step 1: Create a test project
 
@@ -264,10 +258,10 @@ Tests that mutate data (borrow a book, add a member) leave the app in a differen
 
 async function reseedApp() {
   // Navigate to More tab
-  await $('android=new UiSelector().description("tab-more")').click();
+  await $('android=new UiSelector().resourceId("tab-more")').click();
 
   // Tap the re-seed button (accessibility label: "Reset and reseed database")
-  await $('android=new UiSelector().description("Reset and reseed database")').click();
+  await $('android=new UiSelector().resourceId("Reset and reseed database")').click();
 
   // Confirm in the native Alert (Android shows uppercase button text)
   const confirmBtn = await $('android=new UiSelector().text("RESET & RESEED")');
@@ -275,7 +269,7 @@ async function reseedApp() {
   await confirmBtn.click();
 
   // Navigate back to Books tab
-  await $('android=new UiSelector().description("tab-books")').click();
+  await $('android=new UiSelector().resourceId("tab-books")').click();
 }
 ```
 
@@ -317,14 +311,14 @@ All `it(...)` blocks go inside the `describe`. Here are the four scenarios:
 
 ```typescript
   it('borrowing a book decreases available copies', async () => {
-    await $('android=new UiSelector().description("book-item-1")').click();
+    await $('android=new UiSelector().resourceId("book-item-1")').click();
 
-    const copiesEl = await $('android=new UiSelector().description("book-detail-copies-1")');
+    const copiesEl = await $('android=new UiSelector().resourceId("book-detail-copies-1")');
     await copiesEl.waitForDisplayed();
     const copiesText = await copiesEl.getText();
     const before = parseInt(copiesText.split('/')[0]);
 
-    await $('android=new UiSelector().description("borrow-button-1")').click();
+    await $('android=new UiSelector().resourceId("borrow-button-1")').click();
 
     const aliceBtn = await $('android=new UiSelector().text("ALICE MÜLLER")');
     await aliceBtn.waitForDisplayed({ timeout: 10_000 });
@@ -334,7 +328,7 @@ All `it(...)` blocks go inside the `describe`. Here are the four scenarios:
     await okBtn.waitForDisplayed({ timeout: 10_000 });
     await okBtn.click();
 
-    const copiesAfter = await $('android=new UiSelector().description("book-detail-copies-1")');
+    const copiesAfter = await $('android=new UiSelector().resourceId("book-detail-copies-1")');
     const afterText = await copiesAfter.getText();
     const after = parseInt(afterText.split('/')[0]);
     expect(after).toBe(before - 1);
@@ -345,10 +339,10 @@ All `it(...)` blocks go inside the `describe`. Here are the four scenarios:
 
 ```typescript
   it('returning an overdue loan shows a late fee', async () => {
-    await $('android=new UiSelector().description("tab-loans")').click();
-    await $('android=new UiSelector().description("loans-filter-overdue")').click();
-    await $('android=new UiSelector().description("loan-item-3")').click();
-    await $('android=new UiSelector().description("return-button-3")').click();
+    await $('android=new UiSelector().resourceId("tab-loans")').click();
+    await $('android=new UiSelector().resourceId("loans-filter-overdue")').click();
+    await $('android=new UiSelector().resourceId("loan-item-3")').click();
+    await $('android=new UiSelector().resourceId("return-button-3")').click();
 
     const returnBtn = await $('android=new UiSelector().text("RETURN")');
     await returnBtn.waitForDisplayed({ timeout: 10_000 });
@@ -358,7 +352,7 @@ All `it(...)` blocks go inside the `describe`. Here are the four scenarios:
     await okBtn.waitForDisplayed({ timeout: 10_000 });
     await okBtn.click();
 
-    const fee = await $('android=new UiSelector().description("loan-detail-fee-3")');
+    const fee = await $('android=new UiSelector().resourceId("loan-detail-fee-3")');
     await expect(fee).toBeDisplayed();
     const feeText = await fee.getText();
     expect(feeText).toContain('€');
@@ -369,9 +363,9 @@ All `it(...)` blocks go inside the `describe`. Here are the four scenarios:
 
 ```typescript
   it('reserving a book creates a pending reservation', async () => {
-    await $('android=new UiSelector().description("tab-books")').click();
-    await $('android=new UiSelector().description("book-item-4")').click();
-    await $('android=new UiSelector().description("reserve-button-4")').click();
+    await $('android=new UiSelector().resourceId("tab-books")').click();
+    await $('android=new UiSelector().resourceId("book-item-4")').click();
+    await $('android=new UiSelector().resourceId("reserve-button-4")').click();
 
     const aliceBtn = await $('android=new UiSelector().text("ALICE MÜLLER")');
     await aliceBtn.waitForDisplayed({ timeout: 10_000 });
@@ -381,7 +375,7 @@ All `it(...)` blocks go inside the `describe`. Here are the four scenarios:
     await okBtn.waitForDisplayed({ timeout: 10_000 });
     await okBtn.click();
 
-    await $('android=new UiSelector().description("tab-reservations")').click();
+    await $('android=new UiSelector().resourceId("tab-reservations")').click();
     const resList = await $('android=new UiSelector().resourceId("reservations-list")');
     await expect(resList).toBeDisplayed();
   });
@@ -477,32 +471,30 @@ Browse available devices: https://app.saucelabs.com/live/mobile/virtual
 ## Appendix C — WebdriverIO Locator Cheat Sheet
 
 ```typescript
-// Find list by testID (resource-id) — FlatList / ScrollView
+// Find element by testID (resource-id)
 const booksList = await $('android=new UiSelector().resourceId("books-list")');
-
-// Find button/row by testID (content-desc) — TouchableOpacity / View
-const bookRow = await $('android=new UiSelector().description("book-item-3")');
+const bookRow = await $('android=new UiSelector().resourceId("book-item-3")');
 
 // Find by visible text
 const heading = await $('android=new UiSelector().text("Books")');
 const alertBtn = await $('android=new UiSelector().text("OK")');
 
-// Find multiple elements by partial content-desc (XPath fallback)
-const rows = await $$('//*[starts-with(@content-desc, "book-item-")]');
+// Find multiple elements by partial resource-id (XPath fallback)
+const rows = await $$('//*[starts-with(@resource-id, "book-item-")]');
 
 // Wait for element to appear
 const el = await $('android=new UiSelector().resourceId("books-list")');
 await el.waitForDisplayed({ timeout: 30_000 });
 
 // Get text from an element
-const el = await $('android=new UiSelector().description("book-copies-1")');
+const el = await $('android=new UiSelector().resourceId("book-copies-1")');
 const text = await el.getText();
 
 // Tap / click an element
-await $('android=new UiSelector().description("borrow-button-1")').click();
+await $('android=new UiSelector().resourceId("borrow-button-1")').click();
 
 // Type into an input
-await $('android=new UiSelector().description("search-input")').setValue('1984');
+await $('android=new UiSelector().resourceId("search-input")').setValue('1984');
 
 // Scroll down (mobile gesture)
 await driver.execute('mobile: scroll', { direction: 'down' });
@@ -519,8 +511,8 @@ Copy this entire file as-is. No imports needed — WDIO injects `$`, `$$`, `brow
 // tests/library.test.ts
 
 async function reseedApp() {
-  await $('android=new UiSelector().description("tab-more")').click();
-  await $('android=new UiSelector().description("Reset and reseed database")').click();
+  await $('android=new UiSelector().resourceId("tab-more")').click();
+  await $('android=new UiSelector().resourceId("Reset and reseed database")').click();
 
   const confirmBtn = await $('android=new UiSelector().text("RESET & RESEED")');
   await confirmBtn.waitForDisplayed({ timeout: 10_000 });
@@ -530,7 +522,7 @@ async function reseedApp() {
   await okBtn.waitForDisplayed({ timeout: 10_000 });
   await okBtn.click();
 
-  await $('android=new UiSelector().description("tab-books")').click();
+  await $('android=new UiSelector().resourceId("tab-books")').click();
 }
 
 describe('Library App - Full Suite', () => {
@@ -552,14 +544,14 @@ describe('Library App - Full Suite', () => {
   });
 
   it('borrowing a book decreases available copies', async () => {
-    await $('android=new UiSelector().description("book-item-1")').click();
+    await $('android=new UiSelector().resourceId("book-item-1")').click();
 
-    const copiesEl = await $('android=new UiSelector().description("book-detail-copies-1")');
+    const copiesEl = await $('android=new UiSelector().resourceId("book-detail-copies-1")');
     await copiesEl.waitForDisplayed();
     const copiesText = await copiesEl.getText();
     const before = parseInt(copiesText.split('/')[0]);
 
-    await $('android=new UiSelector().description("borrow-button-1")').click();
+    await $('android=new UiSelector().resourceId("borrow-button-1")').click();
 
     const aliceBtn = await $('android=new UiSelector().text("ALICE MÜLLER")');
     await aliceBtn.waitForDisplayed({ timeout: 10_000 });
@@ -569,17 +561,17 @@ describe('Library App - Full Suite', () => {
     await okBtn.waitForDisplayed({ timeout: 10_000 });
     await okBtn.click();
 
-    const copiesAfter = await $('android=new UiSelector().description("book-detail-copies-1")');
+    const copiesAfter = await $('android=new UiSelector().resourceId("book-detail-copies-1")');
     const afterText = await copiesAfter.getText();
     const after = parseInt(afterText.split('/')[0]);
     expect(after).toBe(before - 1);
   });
 
   it('returning an overdue loan shows a late fee', async () => {
-    await $('android=new UiSelector().description("tab-loans")').click();
-    await $('android=new UiSelector().description("loans-filter-overdue")').click();
-    await $('android=new UiSelector().description("loan-item-3")').click();
-    await $('android=new UiSelector().description("return-button-3")').click();
+    await $('android=new UiSelector().resourceId("tab-loans")').click();
+    await $('android=new UiSelector().resourceId("loans-filter-overdue")').click();
+    await $('android=new UiSelector().resourceId("loan-item-3")').click();
+    await $('android=new UiSelector().resourceId("return-button-3")').click();
 
     const returnBtn = await $('android=new UiSelector().text("RETURN")');
     await returnBtn.waitForDisplayed({ timeout: 10_000 });
@@ -589,16 +581,16 @@ describe('Library App - Full Suite', () => {
     await okBtn.waitForDisplayed({ timeout: 10_000 });
     await okBtn.click();
 
-    const fee = await $('android=new UiSelector().description("loan-detail-fee-3")');
+    const fee = await $('android=new UiSelector().resourceId("loan-detail-fee-3")');
     await expect(fee).toBeDisplayed();
     const feeText = await fee.getText();
     expect(feeText).toContain('€');
   });
 
   it('reserving a book creates a pending reservation', async () => {
-    await $('android=new UiSelector().description("tab-books")').click();
-    await $('android=new UiSelector().description("book-item-4")').click();
-    await $('android=new UiSelector().description("reserve-button-4")').click();
+    await $('android=new UiSelector().resourceId("tab-books")').click();
+    await $('android=new UiSelector().resourceId("book-item-4")').click();
+    await $('android=new UiSelector().resourceId("reserve-button-4")').click();
 
     const aliceBtn = await $('android=new UiSelector().text("ALICE MÜLLER")');
     await aliceBtn.waitForDisplayed({ timeout: 10_000 });
@@ -608,7 +600,7 @@ describe('Library App - Full Suite', () => {
     await okBtn.waitForDisplayed({ timeout: 10_000 });
     await okBtn.click();
 
-    await $('android=new UiSelector().description("tab-reservations")').click();
+    await $('android=new UiSelector().resourceId("tab-reservations")').click();
     const resList = await $('android=new UiSelector().resourceId("reservations-list")');
     await expect(resList).toBeDisplayed();
   });
