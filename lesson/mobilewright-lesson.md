@@ -147,17 +147,24 @@ Now that we know the locators, let's automate.
 
 ### How we find elements
 
-React Native's `testID` maps to the `content-desc` attribute on Android. We use Android's **UiAutomator** selector engine to find elements by `content-desc`:
+React Native's `testID` maps to different Android attributes depending on the component type:
+- **Lists** (`FlatList`, `ScrollView`) → `resource-id`
+- **Buttons, rows, text** (`TouchableOpacity`, `View`, `Text`) → `content-desc`
+
+We use Android's **UiAutomator** selector engine to target these attributes:
 
 ```typescript
-// Find element by testID (content-desc)
-$('android=new UiSelector().description("books-list")')
+// Find a list by testID (resource-id) — for FlatList / ScrollView
+$('android=new UiSelector().resourceId("books-list")')
+
+// Find a button or row by testID (content-desc) — for TouchableOpacity / View
+$('android=new UiSelector().description("book-item-1")')
 
 // Find element by visible text
 $('android=new UiSelector().text("OK")')
 ```
 
-This is the most reliable way to target React Native elements on Android.
+> **Tip:** Use the Appium Inspector (Block 2) to check whether a given element uses `resource-id` or `content-desc` — then pick `resourceId()` or `description()` accordingly.
 
 ### Step 1: Create a test project
 
@@ -218,7 +225,7 @@ export const config: WebdriverIO.Config = {
 describe('Library App - Smoke', () => {
   it('app launches and shows the Books list', async () => {
     // Find the books list by its testID (content-desc on Android)
-    const booksList = await $('android=new UiSelector().description("books-list")');
+    const booksList = await $('android=new UiSelector().resourceId("books-list")');
     await booksList.waitForDisplayed({ timeout: 30_000 });
     await expect(booksList).toBeDisplayed();
   });
@@ -272,14 +279,14 @@ async function reseedApp() {
 describe('Library App - Full Suite', () => {
   before(async () => {
     // Wait for app to load
-    const booksList = await $('android=new UiSelector().description("books-list")');
+    const booksList = await $('android=new UiSelector().resourceId("books-list")');
     await booksList.waitForDisplayed({ timeout: 30_000 });
     // Reseed to guarantee clean state
     await reseedApp();
   });
 
   it('books list shows the seeded books', async () => {
-    const booksList = await $('android=new UiSelector().description("books-list")');
+    const booksList = await $('android=new UiSelector().resourceId("books-list")');
     await expect(booksList).toBeDisplayed();
 
     // Verify known book titles are visible
@@ -381,7 +388,7 @@ describe('Library App - Full Suite', () => {
 
     // Navigate to Reservations and verify
     await $('android=new UiSelector().description("tab-reservations")').click();
-    const resList = await $('android=new UiSelector().description("reservations-list")');
+    const resList = await $('android=new UiSelector().resourceId("reservations-list")');
     await expect(resList).toBeDisplayed();
   });
 });
@@ -475,8 +482,10 @@ Browse available devices: https://app.saucelabs.com/live/mobile/virtual
 ## Appendix C — WebdriverIO Locator Cheat Sheet
 
 ```typescript
-// Find by testID / content-desc (preferred for React Native)
-const booksList = await $('android=new UiSelector().description("books-list")');
+// Find list by testID (resource-id) — FlatList / ScrollView
+const booksList = await $('android=new UiSelector().resourceId("books-list")');
+
+// Find button/row by testID (content-desc) — TouchableOpacity / View
 const bookRow = await $('android=new UiSelector().description("book-item-3")');
 
 // Find by visible text
@@ -487,7 +496,7 @@ const alertBtn = await $('android=new UiSelector().text("OK")');
 const rows = await $$('//*[starts-with(@content-desc, "book-item-")]');
 
 // Wait for element to appear
-const el = await $('android=new UiSelector().description("books-list")');
+const el = await $('android=new UiSelector().resourceId("books-list")');
 await el.waitForDisplayed({ timeout: 30_000 });
 
 // Get text from an element
