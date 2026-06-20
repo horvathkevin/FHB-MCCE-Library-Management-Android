@@ -7,8 +7,8 @@
 By the end of this lesson students will be able to:
 1. Explain what Appium is and how WebdriverIO uses it
 2. Upload an APK to Sauce Labs and inspect UI elements with the built-in Appium Inspector
-3. Identify stable locators (`testID` / accessibility id) using the Inspector
-4. Write WebdriverIO test cases using accessibility-id-based locators
+3. Identify stable locators (`testID` / `content-desc`) using the Inspector
+4. Write WebdriverIO test cases using UiAutomator-based locators
 5. Use the re-seed button to reset app state between test runs
 6. Run a small test suite against a real cloud device on Sauce Labs
 
@@ -17,7 +17,6 @@ By the end of this lesson students will be able to:
 ## Prerequisites (done before the lesson)
 - Node.js 18+ and npm installed
 - A Sauce Labs account — free trial at https://saucelabs.com
-  - **`SAUCE_USERNAME`** and **`SAUCE_ACCESS_KEY`** set as environment variables
 - The FHB Library APK downloaded from GitHub Actions:
   - **[Download the APK here](https://github.com/horvathkevin/FHB-MCCE-Library-Management-Android/actions/runs/27850644020/artifacts/7759278626)**
   - Unzip to get `app-debug.apk`
@@ -52,47 +51,16 @@ The **FHB Library App** is a library management system. It manages books, member
 
 ## Block 1 — Setup & APK Upload (10 min)
 
-### Step 1: Set your Sauce Labs credentials
-Store these as environment variables — never hard-code them in test files.
-
-**macOS / Linux:**
-```bash
-export SAUCE_USERNAME=your-username
-export SAUCE_ACCESS_KEY=your-access-key
-```
-
-**Windows (PowerShell):**
-```powershell
-$env:SAUCE_USERNAME = "your-username"
-$env:SAUCE_ACCESS_KEY = "your-access-key"
-```
-
-Find your access key at: https://app.saucelabs.com/user-settings
+### Step 1: Find your Sauce Labs credentials
+Go to https://app.saucelabs.com/user-settings and copy your **Username** and **Access Key**. You will paste them directly into the WDIO config file in Block 3.
 
 ### Step 2: Upload the APK to Sauce Labs App Storage
-Sauce Labs needs the APK in its storage before tests can run. You have two options:
+Sauce Labs needs the APK in its storage before tests can run.
 
-**Option A — Upload via the Sauce Labs UI:**
 1. Go to https://app.saucelabs.com → **App Management** (left sidebar)
 2. Click **Upload App**
 3. Select your `app-debug.apk` file
-4. Once uploaded, note the filename (e.g. `FHBLibrary.apk`)
-
-**Option B — Upload via cURL:**
-```bash
-curl -u "$SAUCE_USERNAME:$SAUCE_ACCESS_KEY" \
-  -X POST "https://api.eu-central-1.saucelabs.com/v1/storage/upload" \
-  -H "Content-Type: multipart/form-data" \
-  -F "payload=@app-debug.apk" \
-  -F "name=FHBLibrary.apk"
-```
-
-> **Note:** Use `api.us-west-1.saucelabs.com` if your account is on the US data centre.
-
-The response contains a storage ID — the filename you will reference in test capabilities:
-```json
-{ "item": { "id": "abc123...", "storage_id": "abc123..." } }
-```
+4. Once uploaded, note the filename (e.g. `app-debug.apk`)
 
 ---
 
@@ -103,7 +71,7 @@ Before writing any automated tests, we need to understand the app's UI structure
 ### Starting a Live Session with Inspector
 
 1. Go to https://app.saucelabs.com → **Live** → **Mobile App**
-2. Select your uploaded APK (`FHBLibrary.apk`)
+2. Select your uploaded APK (`app-debug.apk`)
 3. Pick a device (e.g. **Google Pixel 7**, Android 13)
 4. Click **Launch** — Sauce Labs installs the APK and starts a live session
 5. Once the app is running, click the **Developer Tools** icon (wrench icon) in the toolbar
@@ -115,7 +83,7 @@ The Inspector shows two panels:
 - **Left:** a live screenshot of the device — click any element to select it
 - **Right:** the element's attributes — `content-desc`, `resource-id`, `text`, `class`, etc.
 
-For this app, the key attribute is **`content-desc`** — this is where React Native's `testID` prop appears on Android.
+For this app, the key attribute is **`content-desc`** — this is where React Native's `testID` prop appears on Android. In our tests, we will use `content-desc` to find elements reliably.
 
 ### Exercise 2A — Explore the Books screen (~5 min)
 
@@ -177,6 +145,20 @@ For this app, the key attribute is **`content-desc`** — this is where React Na
 
 Now that we know the locators, let's automate.
 
+### How we find elements
+
+React Native's `testID` maps to the `content-desc` attribute on Android. We use Android's **UiAutomator** selector engine to find elements by `content-desc`:
+
+```typescript
+// Find element by testID (content-desc)
+$('android=new UiSelector().description("books-list")')
+
+// Find element by visible text
+$('android=new UiSelector().text("OK")')
+```
+
+This is the most reliable way to target React Native elements on Android.
+
 ### Step 1: Create a test project
 
 ```bash
@@ -194,22 +176,20 @@ export const config: WebdriverIO.Config = {
   specs: ['./tests/**/*.test.ts'],
   maxInstances: 1,
 
-  user: process.env.SAUCE_USERNAME,
-  key: process.env.SAUCE_ACCESS_KEY,
+  // Paste your Sauce Labs credentials here (from https://app.saucelabs.com/user-settings)
+  user: 'your-sauce-username',
+  key: 'your-sauce-access-key',
   region: 'eu',  // change to 'us' if on US data centre
 
   capabilities: [{
     platformName: 'Android',
     'appium:automationName': 'UiAutomator2',
-    'appium:deviceName': 'Google Pixel 7',
-    'appium:platformVersion': '13',
-    'appium:app': 'storage:filename=FHBLibrary.apk',
+    'appium:app': 'storage:filename=app-debug.apk',
     'appium:appPackage': 'com.fhb.libraryandroid',
     'appium:appActivity': '.MainActivity',
     'appium:noReset': false,
     'appium:newCommandTimeout': 120,
     'sauce:options': {
-      appiumVersion: '2.0.0',
       build: 'FHB Library Lesson',
       name: 'Library Tests',
     },
@@ -230,16 +210,20 @@ export const config: WebdriverIO.Config = {
 ### Step 3: Write a smoke test (`tests/smoke.test.ts`)
 
 ```typescript
+// tests/smoke.test.ts
+//
+// When using the WDIO test runner, $, $$, browser, driver, and expect
+// are injected as globals — no imports needed.
+
 describe('Library App - Smoke', () => {
   it('app launches and shows the Books list', async () => {
-    const booksList = await $('~books-list');
+    // Find the books list by its testID (content-desc on Android)
+    const booksList = await $('android=new UiSelector().description("books-list")');
     await booksList.waitForDisplayed({ timeout: 30_000 });
     await expect(booksList).toBeDisplayed();
   });
 });
 ```
-
-> **Note:** In WebdriverIO, `$('~books-list')` is shorthand for finding an element by accessibility id. The `~` prefix tells WDIO to use the accessibility id locator strategy.
 
 ### Step 4: Run it
 
@@ -247,63 +231,62 @@ describe('Library App - Smoke', () => {
 npx wdio run wdio.conf.ts
 ```
 
-**Expected result:** Sauce Labs allocates a real Pixel 7, installs the APK, and the test passes. You can watch the session live at https://app.saucelabs.com and review the video recording afterwards.
+**Expected result:** Sauce Labs allocates a device, installs the APK, and the test passes. You can watch the session live at https://app.saucelabs.com and review the video recording afterwards.
 
 ---
 
 ## Block 4 — Writing Test Cases (15 min)
 
-### Re-seed helper
+### Re-seed function
 
 Tests that mutate data (borrow a book, add a member) leave the app in a different state. The re-seed button resets all data to the original 10 books, 8 members, 3 loans and 2 reservations.
 
 ```typescript
-// tests/helpers.ts
-export async function reseedApp() {
+async function reseedApp() {
   // Navigate to More tab
-  await $('~tab-more').click();
+  await $('android=new UiSelector().description("tab-more")').click();
 
   // Tap the re-seed button
-  await $('~seed-database-button').click();
+  await $('android=new UiSelector().description("seed-database-button")').click();
 
   // Confirm in the native Alert (Android shows uppercase button text)
-  const confirmBtn = await $('//*[@text="RESET & RESEED"]');
+  const confirmBtn = await $('android=new UiSelector().text("RESET & RESEED")');
   await confirmBtn.waitForDisplayed({ timeout: 10_000 });
   await confirmBtn.click();
 
   // Wait for success alert and dismiss
-  const okBtn = await $('//*[@text="OK"]');
+  const okBtn = await $('android=new UiSelector().text("OK")');
   await okBtn.waitForDisplayed({ timeout: 10_000 });
   await okBtn.click();
 
   // Navigate back to Books tab
-  await $('~tab-books').click();
+  await $('android=new UiSelector().description("tab-books")').click();
 }
 ```
 
 ### Scenario 1: Books list loads with seed data
 
 ```typescript
-import { reseedApp } from './helpers';
+// tests/library.test.ts
 
 describe('Library App - Full Suite', () => {
   before(async () => {
     // Wait for app to load
-    const booksList = await $('~books-list');
+    const booksList = await $('android=new UiSelector().description("books-list")');
     await booksList.waitForDisplayed({ timeout: 30_000 });
     // Reseed to guarantee clean state
     await reseedApp();
   });
 
   it('books list shows the seeded books', async () => {
-    const booksList = await $('~books-list');
+    const booksList = await $('android=new UiSelector().description("books-list")');
     await expect(booksList).toBeDisplayed();
 
-    // Verify a known book title is visible
-    const title1984 = await $('//*[@text="1984"]');
+    // Verify known book titles are visible
+    const title1984 = await $('android=new UiSelector().text("1984")');
     await expect(title1984).toBeDisplayed();
 
-    const titleAlchemist = await $('//*[@text="The Alchemist"]');
+    const titleAlchemist = await $('android=new UiSelector().text("The Alchemist")');
     await expect(titleAlchemist).toBeDisplayed();
   });
 ```
@@ -313,30 +296,31 @@ describe('Library App - Full Suite', () => {
 ```typescript
   it('borrowing a book decreases available copies', async () => {
     // Open book #1 detail
-    await $('~book-item-1').click();
+    await $('android=new UiSelector().description("book-item-1")').click();
 
     // Read current copies text (e.g. "2/3 available")
-    const copiesEl = await $('~book-detail-copies-1');
+    const copiesEl = await $('android=new UiSelector().description("book-detail-copies-1")');
     await copiesEl.waitForDisplayed();
     const copiesText = await copiesEl.getText();
     const before = parseInt(copiesText.split('/')[0]);
 
     // Tap Borrow
-    await $('~borrow-button-1').click();
+    await $('android=new UiSelector().description("borrow-button-1")').click();
 
     // An Alert appears with member names in UPPERCASE — pick Alice
-    const aliceBtn = await $('//*[@text="ALICE MÜLLER"]');
+    const aliceBtn = await $('android=new UiSelector().text("ALICE MÜLLER")');
     await aliceBtn.waitForDisplayed({ timeout: 10_000 });
     await aliceBtn.click();
 
     // Wait for success alert and dismiss
-    const okBtn = await $('//*[@text="OK"]');
+    const okBtn = await $('android=new UiSelector().text("OK")');
     await okBtn.waitForDisplayed({ timeout: 10_000 });
     await okBtn.click();
 
     // Verify copies decreased
-    const copiesAfter = await $('~book-detail-copies-1').getText();
-    const after = parseInt(copiesAfter.split('/')[0]);
+    const copiesAfter = await $('android=new UiSelector().description("book-detail-copies-1")');
+    const afterText = await copiesAfter.getText();
+    const after = parseInt(afterText.split('/')[0]);
     expect(after).toBe(before - 1);
   });
 ```
@@ -346,29 +330,29 @@ describe('Library App - Full Suite', () => {
 ```typescript
   it('returning an overdue loan shows a late fee', async () => {
     // Navigate to Loans tab
-    await $('~tab-loans').click();
+    await $('android=new UiSelector().description("tab-loans")').click();
 
     // Filter to overdue
-    await $('~loans-filter-overdue').click();
+    await $('android=new UiSelector().description("loans-filter-overdue")').click();
 
     // Open loan 3 (seeded as overdue)
-    await $('~loan-item-3').click();
+    await $('android=new UiSelector().description("loan-item-3")').click();
 
     // Tap Return
-    await $('~return-button-3').click();
+    await $('android=new UiSelector().description("return-button-3")').click();
 
     // Confirm in the dialog (uppercase on Android)
-    const returnBtn = await $('//*[@text="RETURN"]');
+    const returnBtn = await $('android=new UiSelector().text("RETURN")');
     await returnBtn.waitForDisplayed({ timeout: 10_000 });
     await returnBtn.click();
 
     // Dismiss success alert
-    const okBtn = await $('//*[@text="OK"]');
+    const okBtn = await $('android=new UiSelector().text("OK")');
     await okBtn.waitForDisplayed({ timeout: 10_000 });
     await okBtn.click();
 
     // Verify fee is displayed
-    const fee = await $('~loan-detail-fee-3');
+    const fee = await $('android=new UiSelector().description("loan-detail-fee-3")');
     await expect(fee).toBeDisplayed();
     const feeText = await fee.getText();
     expect(feeText).toContain('€');
@@ -379,25 +363,25 @@ describe('Library App - Full Suite', () => {
 
 ```typescript
   it('reserving a book creates a pending reservation', async () => {
-    await $('~tab-books').click();
-    await $('~book-item-4').click();
+    await $('android=new UiSelector().description("tab-books")').click();
+    await $('android=new UiSelector().description("book-item-4")').click();
 
     // Reserve the book
-    await $('~reserve-button-4').click();
+    await $('android=new UiSelector().description("reserve-button-4")').click();
 
     // Pick Alice from the alert
-    const aliceBtn = await $('//*[@text="ALICE MÜLLER"]');
+    const aliceBtn = await $('android=new UiSelector().text("ALICE MÜLLER")');
     await aliceBtn.waitForDisplayed({ timeout: 10_000 });
     await aliceBtn.click();
 
     // Dismiss success alert
-    const okBtn = await $('//*[@text="OK"]');
+    const okBtn = await $('android=new UiSelector().text("OK")');
     await okBtn.waitForDisplayed({ timeout: 10_000 });
     await okBtn.click();
 
     // Navigate to Reservations and verify
-    await $('~tab-reservations').click();
-    const resList = await $('~reservations-list');
+    await $('android=new UiSelector().description("tab-reservations")').click();
+    const resList = await $('android=new UiSelector().description("reservations-list")');
     await expect(resList).toBeDisplayed();
   });
 });
@@ -434,20 +418,20 @@ After the run, go to https://app.saucelabs.com/test-results — you will see:
 - **PASS** — assertion met
 - **FAIL** — assertion not met; watch the video replay to see exactly what happened on device
 - **TIMEOUT** — element not found within the wait timeout; check the `testID` spelling
-- **Error: invalid credentials** — check `SAUCE_USERNAME` / `SAUCE_ACCESS_KEY` env vars
+- **Error: invalid credentials** — check `user` and `key` in `wdio.conf.ts`
 
 ### Common issues & fixes
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Element not found (`~book-item-1`) | App still loading | Add `waitForDisplayed({ timeout: 30000 })` |
+| Element not found | App still loading | Add `waitForDisplayed({ timeout: 30000 })` |
 | Alert button not found | Dialog dismissed too early | Increase `waitForDisplayed` timeout |
 | Fee text missing | Test order issue — book wasn't overdue | Always call `reseedApp()` before tests |
-| Device allocation timeout | No matching device available | Try a different `deviceName` in capabilities |
+| Device allocation timeout | No matching device available | Try again — Sauce Labs will assign any available Android device |
 | APK not found | Wrong filename in `storage:filename` | Re-upload and verify the filename in App Management |
 
 ### Discussion prompts
-1. Why is `testID` (accessibility id) better than XPath for production test suites?
+1. Why is `testID` (`content-desc`) better than XPath for production test suites?
 2. What would break if a developer renamed `book-item-{id}` to `bookRow-{id}`?
 3. What are the advantages of running on Sauce Labs vs a local emulator?
 4. How would you integrate this suite into a CI/CD pipeline so it runs on every pull request?
@@ -460,15 +444,12 @@ After the run, go to https://app.saucelabs.com/test-results — you will see:
 {
   "platformName": "Android",
   "appium:automationName": "UiAutomator2",
-  "appium:deviceName": "Google Pixel 7",
-  "appium:platformVersion": "13",
-  "appium:app": "storage:filename=FHBLibrary.apk",
+  "appium:app": "storage:filename=app-debug.apk",
   "appium:appPackage": "com.fhb.libraryandroid",
   "appium:appActivity": ".MainActivity",
   "appium:noReset": false,
   "appium:newCommandTimeout": 120,
   "sauce:options": {
-    "appiumVersion": "2.0.0",
     "build": "FHB Library Lesson",
     "name": "My Test Name"
   }
@@ -486,20 +467,6 @@ Browse available devices: https://app.saucelabs.com/live/mobile/virtual
 
 ## Appendix B — Uploading the APK
 
-**Via cURL (EU data centre):**
-```bash
-curl -u "$SAUCE_USERNAME:$SAUCE_ACCESS_KEY" \
-  -X POST "https://api.eu-central-1.saucelabs.com/v1/storage/upload" \
-  -H "Content-Type: multipart/form-data" \
-  -F "payload=@app-debug.apk" \
-  -F "name=FHBLibrary.apk"
-
-# Check uploaded apps
-curl -u "$SAUCE_USERNAME:$SAUCE_ACCESS_KEY" \
-  "https://api.eu-central-1.saucelabs.com/v1/storage/files?q=FHBLibrary"
-```
-
-**Via Sauce Labs UI:**
 1. Go to https://app.saucelabs.com → **App Management** (left sidebar)
 2. Click **Upload App**
 3. Select your `app-debug.apk` file
@@ -508,28 +475,30 @@ curl -u "$SAUCE_USERNAME:$SAUCE_ACCESS_KEY" \
 ## Appendix C — WebdriverIO Locator Cheat Sheet
 
 ```typescript
-// Accessibility ID (preferred — maps to testID in React Native)
-const booksList = await $('~books-list');
-const bookRow = await $('~book-item-3');
+// Find by testID / content-desc (preferred for React Native)
+const booksList = await $('android=new UiSelector().description("books-list")');
+const bookRow = await $('android=new UiSelector().description("book-item-3")');
 
-// XPath by text (fallback — fragile, use sparingly)
-const heading = await $('//*[@text="Books"]');
+// Find by visible text
+const heading = await $('android=new UiSelector().text("Books")');
+const alertBtn = await $('android=new UiSelector().text("OK")');
 
-// XPath by partial content-desc
+// Find multiple elements by partial content-desc (XPath fallback)
 const rows = await $$('//*[starts-with(@content-desc, "book-item-")]');
-// $$ returns an array of elements
 
-// Wait for element
-await $('~books-list').waitForDisplayed({ timeout: 30_000 });
+// Wait for element to appear
+const el = await $('android=new UiSelector().description("books-list")');
+await el.waitForDisplayed({ timeout: 30_000 });
 
 // Get text from an element
-const text = await $('~book-copies-1').getText();
+const el = await $('android=new UiSelector().description("book-copies-1")');
+const text = await el.getText();
 
 // Tap / click an element
-await $('~borrow-button-1').click();
+await $('android=new UiSelector().description("borrow-button-1")').click();
 
 // Type into an input
-await $('~search-input').setValue('1984');
+await $('android=new UiSelector().description("search-input")').setValue('1984');
 
 // Scroll down (mobile gesture)
 await driver.execute('mobile: scroll', { direction: 'down' });
