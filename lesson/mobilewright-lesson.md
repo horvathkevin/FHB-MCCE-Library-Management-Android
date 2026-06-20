@@ -147,18 +147,24 @@ Now that we know the locators, let's automate.
 
 ### How we find elements
 
-React Native's `testID` maps to the `resource-id` attribute on Android. We use Android's **UiAutomator** selector engine to find elements:
+In React Native on Android, there are two ways elements get identified:
+- **`testID`** prop → maps to `resource-id` → use **`.resourceId("...")`**
+- **`accessibilityLabel`** prop → maps to `content-desc` → use **`.description("...")`**
+
+We use Android's **UiAutomator** selector engine to find elements:
 
 ```typescript
-// Find element by testID (resource-id)
-$('android=new UiSelector().resourceId("books-list")')
+// Find element by testID (resource-id) — buttons, rows, lists, inputs
 $('android=new UiSelector().resourceId("book-item-1")')
 
-// Find element by visible text (for alert buttons, etc.)
+// Find element by accessibilityLabel (content-desc) — tab bar items
+$('android=new UiSelector().description("tab-books")')
+
+// Find element by visible text — alert buttons
 $('android=new UiSelector().text("OK")')
 ```
 
-> **Tip:** Use the Appium Inspector (Block 2) to verify the exact attribute name and value for any element.
+> **Tip:** Use the Appium Inspector (Block 2) to check each element's attributes and pick the right selector.
 
 ### Step 1: Create a test project
 
@@ -258,10 +264,10 @@ Tests that mutate data (borrow a book, add a member) leave the app in a differen
 
 async function reseedApp() {
   // Navigate to More tab
-  await $('android=new UiSelector().resourceId("tab-more")').click();
+  await $('android=new UiSelector().description("tab-more")').click();
 
   // Tap the re-seed button (accessibility label: "Reset and reseed database")
-  await $('android=new UiSelector().resourceId("Reset and reseed database")').click();
+  await $('android=new UiSelector().description("Reset and reseed database")').click();
 
   // Confirm in the native Alert (Android shows uppercase button text)
   const confirmBtn = await $('android=new UiSelector().text("RESET & RESEED")');
@@ -269,7 +275,7 @@ async function reseedApp() {
   await confirmBtn.click();
 
   // Navigate back to Books tab
-  await $('android=new UiSelector().resourceId("tab-books")').click();
+  await $('android=new UiSelector().description("tab-books")').click();
 }
 ```
 
@@ -339,7 +345,7 @@ All `it(...)` blocks go inside the `describe`. Here are the four scenarios:
 
 ```typescript
   it('returning an overdue loan shows a late fee', async () => {
-    await $('android=new UiSelector().resourceId("tab-loans")').click();
+    await $('android=new UiSelector().description("tab-loans")').click();
     await $('android=new UiSelector().resourceId("loans-filter-overdue")').click();
     await $('android=new UiSelector().resourceId("loan-item-3")').click();
     await $('android=new UiSelector().resourceId("return-button-3")').click();
@@ -363,7 +369,7 @@ All `it(...)` blocks go inside the `describe`. Here are the four scenarios:
 
 ```typescript
   it('reserving a book creates a pending reservation', async () => {
-    await $('android=new UiSelector().resourceId("tab-books")').click();
+    await $('android=new UiSelector().description("tab-books")').click();
     await $('android=new UiSelector().resourceId("book-item-4")').click();
     await $('android=new UiSelector().resourceId("reserve-button-4")').click();
 
@@ -375,7 +381,7 @@ All `it(...)` blocks go inside the `describe`. Here are the four scenarios:
     await okBtn.waitForDisplayed({ timeout: 10_000 });
     await okBtn.click();
 
-    await $('android=new UiSelector().resourceId("tab-reservations")').click();
+    await $('android=new UiSelector().description("tab-reservations")').click();
     const resList = await $('android=new UiSelector().resourceId("reservations-list")');
     await expect(resList).toBeDisplayed();
   });
@@ -471,9 +477,12 @@ Browse available devices: https://app.saucelabs.com/live/mobile/virtual
 ## Appendix C — WebdriverIO Locator Cheat Sheet
 
 ```typescript
-// Find element by testID (resource-id)
-const booksList = await $('android=new UiSelector().resourceId("books-list")');
+// Find element by testID (resource-id) — buttons, rows, lists, inputs
 const bookRow = await $('android=new UiSelector().resourceId("book-item-3")');
+const booksList = await $('android=new UiSelector().resourceId("books-list")');
+
+// Find element by accessibilityLabel (content-desc) — tab bar items
+const booksTab = await $('android=new UiSelector().description("tab-books")');
 
 // Find by visible text
 const heading = await $('android=new UiSelector().text("Books")');
@@ -511,18 +520,14 @@ Copy this entire file as-is. No imports needed — WDIO injects `$`, `$$`, `brow
 // tests/library.test.ts
 
 async function reseedApp() {
-  await $('android=new UiSelector().resourceId("tab-more")').click();
-  await $('android=new UiSelector().resourceId("Reset and reseed database")').click();
+  await $('android=new UiSelector().description("tab-more")').click();
+  await $('android=new UiSelector().description("Reset and reseed database")').click();
 
   const confirmBtn = await $('android=new UiSelector().text("RESET & RESEED")');
   await confirmBtn.waitForDisplayed({ timeout: 10_000 });
   await confirmBtn.click();
 
-  const okBtn = await $('android=new UiSelector().text("OK")');
-  await okBtn.waitForDisplayed({ timeout: 10_000 });
-  await okBtn.click();
-
-  await $('android=new UiSelector().resourceId("tab-books")').click();
+  await $('android=new UiSelector().description("tab-books")').click();
 }
 
 describe('Library App - Full Suite', () => {
@@ -568,7 +573,7 @@ describe('Library App - Full Suite', () => {
   });
 
   it('returning an overdue loan shows a late fee', async () => {
-    await $('android=new UiSelector().resourceId("tab-loans")').click();
+    await $('android=new UiSelector().description("tab-loans")').click();
     await $('android=new UiSelector().resourceId("loans-filter-overdue")').click();
     await $('android=new UiSelector().resourceId("loan-item-3")').click();
     await $('android=new UiSelector().resourceId("return-button-3")').click();
@@ -588,7 +593,7 @@ describe('Library App - Full Suite', () => {
   });
 
   it('reserving a book creates a pending reservation', async () => {
-    await $('android=new UiSelector().resourceId("tab-books")').click();
+    await $('android=new UiSelector().description("tab-books")').click();
     await $('android=new UiSelector().resourceId("book-item-4")').click();
     await $('android=new UiSelector().resourceId("reserve-button-4")').click();
 
@@ -600,7 +605,7 @@ describe('Library App - Full Suite', () => {
     await okBtn.waitForDisplayed({ timeout: 10_000 });
     await okBtn.click();
 
-    await $('android=new UiSelector().resourceId("tab-reservations")').click();
+    await $('android=new UiSelector().description("tab-reservations")').click();
     const resList = await $('android=new UiSelector().resourceId("reservations-list")');
     await expect(resList).toBeDisplayed();
   });
