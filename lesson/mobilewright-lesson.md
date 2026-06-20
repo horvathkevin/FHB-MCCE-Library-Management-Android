@@ -130,7 +130,7 @@ For this app, the key attribute is **`content-desc`** — this is where React Na
 | Reservation row | `reservation-item-{id}` |
 | Cancel reservation button | `cancel-reservation-button-{id}` |
 | Global search input | `search-input` |
-| Re-seed button | `seed-database-button` |
+| Re-seed button | `Reset and reseed database` |
 | Reports screen | `reports-screen` |
 | Stat cards | `stat-total-books`, `stat-active-loans`, etc. |
 | Bottom tab — Books | accessibility label `tab-books` |
@@ -197,6 +197,7 @@ export const config: WebdriverIO.Config = {
     'appium:noReset': false,
     'appium:newCommandTimeout': 120,
     'sauce:options': {
+      appiumVersion: 'latest',
       build: 'FHB Library Lesson',
       name: 'Library Tests',
     },
@@ -244,38 +245,45 @@ npx wdio run wdio.conf.ts
 
 ## Block 4 — Writing Test Cases (15 min)
 
-### Re-seed function
+In this block we build a single test file (`tests/library.test.ts`) step by step. The file has three parts:
 
-Tests that mutate data (borrow a book, add a member) leave the app in a different state. The re-seed button resets all data to the original 10 books, 8 members, 3 loans and 2 reservations.
+1. **A `reseedApp()` function** at the top of the file — resets the database to a clean state
+2. **A `before` hook** inside the `describe` block — waits for the app to load and calls `reseedApp()`
+3. **Four `it(...)` test cases** — each one tests a different feature
+
+> **Important:** All code below goes into **one file**: `tests/library.test.ts`. The full copy-pasteable file is in **Appendix D** at the end of this document.
+
+### Part 1: The reseedApp function
+
+Tests that mutate data (borrow a book, add a member) leave the app in a different state. The `reseedApp` function navigates to the More tab, taps the re-seed button, confirms the dialog, and returns to the Books tab. We define it at the **top of the file**, outside the `describe` block:
 
 ```typescript
+// tests/library.test.ts
+//
+// $, $$, browser, driver, and expect are WDIO globals — no imports needed.
+
 async function reseedApp() {
   // Navigate to More tab
   await $('android=new UiSelector().description("tab-more")').click();
 
-  // Tap the re-seed button
-  await $('android=new UiSelector().description("seed-database-button")').click();
+  // Tap the re-seed button (accessibility label: "Reset and reseed database")
+  await $('android=new UiSelector().description("Reset and reseed database")').click();
 
   // Confirm in the native Alert (Android shows uppercase button text)
   const confirmBtn = await $('android=new UiSelector().text("RESET & RESEED")');
   await confirmBtn.waitForDisplayed({ timeout: 10_000 });
   await confirmBtn.click();
 
-  // Wait for success alert and dismiss
-  const okBtn = await $('android=new UiSelector().text("OK")');
-  await okBtn.waitForDisplayed({ timeout: 10_000 });
-  await okBtn.click();
-
   // Navigate back to Books tab
   await $('android=new UiSelector().description("tab-books")').click();
 }
 ```
 
-### Scenario 1: Books list loads with seed data
+### Part 2: The describe block with before hook
+
+After the `reseedApp` function, we open a `describe` block with a `before` hook that runs once before all tests:
 
 ```typescript
-// tests/library.test.ts
-
 describe('Library App - Full Suite', () => {
   before(async () => {
     // Wait for app to load
@@ -284,12 +292,19 @@ describe('Library App - Full Suite', () => {
     // Reseed to guarantee clean state
     await reseedApp();
   });
+```
 
+### Part 3: The test scenarios
+
+All `it(...)` blocks go inside the `describe`. Here are the four scenarios:
+
+**Scenario 1 — Books list loads with seed data:**
+
+```typescript
   it('books list shows the seeded books', async () => {
     const booksList = await $('android=new UiSelector().resourceId("books-list")');
     await expect(booksList).toBeDisplayed();
 
-    // Verify known book titles are visible
     const title1984 = await $('android=new UiSelector().text("1984")');
     await expect(title1984).toBeDisplayed();
 
@@ -298,33 +313,27 @@ describe('Library App - Full Suite', () => {
   });
 ```
 
-### Scenario 2: Borrow a book and verify availability decreases
+**Scenario 2 — Borrow a book and verify availability decreases:**
 
 ```typescript
   it('borrowing a book decreases available copies', async () => {
-    // Open book #1 detail
     await $('android=new UiSelector().description("book-item-1")').click();
 
-    // Read current copies text (e.g. "2/3 available")
     const copiesEl = await $('android=new UiSelector().description("book-detail-copies-1")');
     await copiesEl.waitForDisplayed();
     const copiesText = await copiesEl.getText();
     const before = parseInt(copiesText.split('/')[0]);
 
-    // Tap Borrow
     await $('android=new UiSelector().description("borrow-button-1")').click();
 
-    // An Alert appears with member names in UPPERCASE — pick Alice
     const aliceBtn = await $('android=new UiSelector().text("ALICE MÜLLER")');
     await aliceBtn.waitForDisplayed({ timeout: 10_000 });
     await aliceBtn.click();
 
-    // Wait for success alert and dismiss
     const okBtn = await $('android=new UiSelector().text("OK")');
     await okBtn.waitForDisplayed({ timeout: 10_000 });
     await okBtn.click();
 
-    // Verify copies decreased
     const copiesAfter = await $('android=new UiSelector().description("book-detail-copies-1")');
     const afterText = await copiesAfter.getText();
     const after = parseInt(afterText.split('/')[0]);
@@ -332,33 +341,23 @@ describe('Library App - Full Suite', () => {
   });
 ```
 
-### Scenario 3: Return a loan and see the late fee
+**Scenario 3 — Return a loan and see the late fee:**
 
 ```typescript
   it('returning an overdue loan shows a late fee', async () => {
-    // Navigate to Loans tab
     await $('android=new UiSelector().description("tab-loans")').click();
-
-    // Filter to overdue
     await $('android=new UiSelector().description("loans-filter-overdue")').click();
-
-    // Open loan 3 (seeded as overdue)
     await $('android=new UiSelector().description("loan-item-3")').click();
-
-    // Tap Return
     await $('android=new UiSelector().description("return-button-3")').click();
 
-    // Confirm in the dialog (uppercase on Android)
     const returnBtn = await $('android=new UiSelector().text("RETURN")');
     await returnBtn.waitForDisplayed({ timeout: 10_000 });
     await returnBtn.click();
 
-    // Dismiss success alert
     const okBtn = await $('android=new UiSelector().text("OK")');
     await okBtn.waitForDisplayed({ timeout: 10_000 });
     await okBtn.click();
 
-    // Verify fee is displayed
     const fee = await $('android=new UiSelector().description("loan-detail-fee-3")');
     await expect(fee).toBeDisplayed();
     const feeText = await fee.getText();
@@ -366,32 +365,27 @@ describe('Library App - Full Suite', () => {
   });
 ```
 
-### Scenario 4: Place a reservation
+**Scenario 4 — Place a reservation:**
 
 ```typescript
   it('reserving a book creates a pending reservation', async () => {
     await $('android=new UiSelector().description("tab-books")').click();
     await $('android=new UiSelector().description("book-item-4")').click();
-
-    // Reserve the book
     await $('android=new UiSelector().description("reserve-button-4")').click();
 
-    // Pick Alice from the alert
     const aliceBtn = await $('android=new UiSelector().text("ALICE MÜLLER")');
     await aliceBtn.waitForDisplayed({ timeout: 10_000 });
     await aliceBtn.click();
 
-    // Dismiss success alert
     const okBtn = await $('android=new UiSelector().text("OK")');
     await okBtn.waitForDisplayed({ timeout: 10_000 });
     await okBtn.click();
 
-    // Navigate to Reservations and verify
     await $('android=new UiSelector().description("tab-reservations")').click();
     const resList = await $('android=new UiSelector().resourceId("reservations-list")');
     await expect(resList).toBeDisplayed();
   });
-});
+});  // ← closes the describe block
 ```
 
 ---
@@ -457,6 +451,7 @@ After the run, go to https://app.saucelabs.com/test-results — you will see:
   "appium:noReset": false,
   "appium:newCommandTimeout": 120,
   "sauce:options": {
+    "appiumVersion": "latest",
     "build": "FHB Library Lesson",
     "name": "My Test Name"
   }
@@ -514,4 +509,108 @@ await driver.execute('mobile: scroll', { direction: 'down' });
 
 // Mark Sauce Labs test as passed/failed
 await driver.execute('sauce:job-result=passed');
+```
+
+## Appendix D — Full Reference: `tests/library.test.ts`
+
+Copy this entire file as-is. No imports needed — WDIO injects `$`, `$$`, `browser`, `driver`, and `expect` as globals.
+
+```typescript
+// tests/library.test.ts
+
+async function reseedApp() {
+  await $('android=new UiSelector().description("tab-more")').click();
+  await $('android=new UiSelector().description("Reset and reseed database")').click();
+
+  const confirmBtn = await $('android=new UiSelector().text("RESET & RESEED")');
+  await confirmBtn.waitForDisplayed({ timeout: 10_000 });
+  await confirmBtn.click();
+
+  const okBtn = await $('android=new UiSelector().text("OK")');
+  await okBtn.waitForDisplayed({ timeout: 10_000 });
+  await okBtn.click();
+
+  await $('android=new UiSelector().description("tab-books")').click();
+}
+
+describe('Library App - Full Suite', () => {
+  before(async () => {
+    const booksList = await $('android=new UiSelector().resourceId("books-list")');
+    await booksList.waitForDisplayed({ timeout: 30_000 });
+    await reseedApp();
+  });
+
+  it('books list shows the seeded books', async () => {
+    const booksList = await $('android=new UiSelector().resourceId("books-list")');
+    await expect(booksList).toBeDisplayed();
+
+    const title1984 = await $('android=new UiSelector().text("1984")');
+    await expect(title1984).toBeDisplayed();
+
+    const titleAlchemist = await $('android=new UiSelector().text("The Alchemist")');
+    await expect(titleAlchemist).toBeDisplayed();
+  });
+
+  it('borrowing a book decreases available copies', async () => {
+    await $('android=new UiSelector().description("book-item-1")').click();
+
+    const copiesEl = await $('android=new UiSelector().description("book-detail-copies-1")');
+    await copiesEl.waitForDisplayed();
+    const copiesText = await copiesEl.getText();
+    const before = parseInt(copiesText.split('/')[0]);
+
+    await $('android=new UiSelector().description("borrow-button-1")').click();
+
+    const aliceBtn = await $('android=new UiSelector().text("ALICE MÜLLER")');
+    await aliceBtn.waitForDisplayed({ timeout: 10_000 });
+    await aliceBtn.click();
+
+    const okBtn = await $('android=new UiSelector().text("OK")');
+    await okBtn.waitForDisplayed({ timeout: 10_000 });
+    await okBtn.click();
+
+    const copiesAfter = await $('android=new UiSelector().description("book-detail-copies-1")');
+    const afterText = await copiesAfter.getText();
+    const after = parseInt(afterText.split('/')[0]);
+    expect(after).toBe(before - 1);
+  });
+
+  it('returning an overdue loan shows a late fee', async () => {
+    await $('android=new UiSelector().description("tab-loans")').click();
+    await $('android=new UiSelector().description("loans-filter-overdue")').click();
+    await $('android=new UiSelector().description("loan-item-3")').click();
+    await $('android=new UiSelector().description("return-button-3")').click();
+
+    const returnBtn = await $('android=new UiSelector().text("RETURN")');
+    await returnBtn.waitForDisplayed({ timeout: 10_000 });
+    await returnBtn.click();
+
+    const okBtn = await $('android=new UiSelector().text("OK")');
+    await okBtn.waitForDisplayed({ timeout: 10_000 });
+    await okBtn.click();
+
+    const fee = await $('android=new UiSelector().description("loan-detail-fee-3")');
+    await expect(fee).toBeDisplayed();
+    const feeText = await fee.getText();
+    expect(feeText).toContain('€');
+  });
+
+  it('reserving a book creates a pending reservation', async () => {
+    await $('android=new UiSelector().description("tab-books")').click();
+    await $('android=new UiSelector().description("book-item-4")').click();
+    await $('android=new UiSelector().description("reserve-button-4")').click();
+
+    const aliceBtn = await $('android=new UiSelector().text("ALICE MÜLLER")');
+    await aliceBtn.waitForDisplayed({ timeout: 10_000 });
+    await aliceBtn.click();
+
+    const okBtn = await $('android=new UiSelector().text("OK")');
+    await okBtn.waitForDisplayed({ timeout: 10_000 });
+    await okBtn.click();
+
+    await $('android=new UiSelector().description("tab-reservations")').click();
+    const resList = await $('android=new UiSelector().resourceId("reservations-list")');
+    await expect(resList).toBeDisplayed();
+  });
+});
 ```
