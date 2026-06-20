@@ -1,5 +1,5 @@
 # Mobile Test Automation with WebdriverIO & Appium
-## FHB 2026 — Lesson Script (~60 minutes)
+## FHB 2026 — Lesson Script
 
 ---
 
@@ -7,7 +7,7 @@
 By the end of this lesson students will be able to:
 1. Explain what Appium is and how WebdriverIO uses it
 2. Upload an APK to Sauce Labs and inspect UI elements with the built-in Appium Inspector
-3. Identify stable locators (`testID` / `content-desc`) using the Inspector
+3. Identify stable locators using the Inspector
 4. Write WebdriverIO test cases using UiAutomator-based locators
 5. Use the re-seed button to reset app state between test runs
 6. Run a small test suite against a real cloud device on Sauce Labs
@@ -23,7 +23,7 @@ By the end of this lesson students will be able to:
 
 ---
 
-## Block 0 — Introduction (5 min)
+## Block 0 — Introduction
 
 ### What is Appium?
 Appium is an open-source automation framework for mobile apps. It exposes a WebDriver-compatible API that lets you control Android and iOS apps programmatically — tapping buttons, filling inputs, reading text.
@@ -49,7 +49,7 @@ The **FHB Library App** is a library management system. It manages books, member
 
 ---
 
-## Block 1 — Setup & APK Upload (10 min)
+## Block 1 — Setup & APK Upload
 
 ### Step 1: Find your Sauce Labs credentials
 Go to https://app.saucelabs.com/user-settings and copy your **Username** and **Access Key**. You will paste them directly into the WDIO config file in Block 3.
@@ -64,7 +64,7 @@ Sauce Labs needs the APK in its storage before tests can run.
 
 ---
 
-## Block 2 — Exploring the App with Appium Inspector (15 min)
+## Block 2 — Exploring the App with Appium Inspector
 
 Before writing any automated tests, we need to understand the app's UI structure. Sauce Labs has a **built-in Appium Inspector** — no separate download needed.
 
@@ -81,67 +81,17 @@ Before writing any automated tests, we need to understand the app's UI structure
 
 The Inspector shows two panels:
 - **Left:** a live screenshot of the device — click any element to select it
-- **Right:** the element's attributes — `content-desc`, `resource-id`, `text`, `class`, etc.
+- **Right:** the element's attributes — `id`, `content-desc`, `text`, `class`, etc.
 
-For this app, the key attribute is **`content-desc`** — this is where React Native's `testID` prop appears on Android. In our tests, we will use `content-desc` to find elements reliably.
+### Exercise — Explore the app
 
-### Exercise 2A — Explore the Books screen (~5 min)
-
-1. The app launches on the Books tab. Click on the first book row in the Inspector.
-2. Find the `content-desc` attribute — it should read `book-item-1`
-3. Click the book title text — its `content-desc` should read `book-title-1`
-4. Click the "+" Add Book button — its `content-desc` should read `add-book-button`
-
-### Exercise 2B — Explore navigation and other tabs (~5 min)
-
-1. In the live session, tap the **Members** tab at the bottom
-2. Use the Inspector to find the `content-desc` of a member row → `member-item-1`
-3. Tap the **Loans** tab — find the filter buttons (`loans-filter-active`, `loans-filter-overdue`, etc.)
-4. Tap the **More** tab — find the re-seed button (`seed-database-button`)
-
-### Exercise 2C — Tap the re-seed button live (~3 min)
-
-1. In the live session (not the Inspector), tap **More** → **Reset / Re-seed Database**
-2. Confirm with **RESET & RESEED**
-3. Navigate back to Books — the data is back to its original state
-
-### Complete testID reference for this app
-
-| Element | testID / content-desc |
-|---|---|
-| Books list (FlatList) | `books-list` |
-| Book row | `book-item-{id}` |
-| Book title text | `book-title-{id}` |
-| Book availability badge | `book-availability-{id}` |
-| Copy count text | `book-copies-{id}` |
-| Add Book button | `add-book-button` |
-| Borrow button (detail) | `borrow-button-{bookId}` |
-| Reserve button (detail) | `reserve-button-{bookId}` |
-| Members list | `members-list` |
-| Member row | `member-item-{id}` |
-| Member status badge | `member-status-badge-{id}` |
-| Add Member button | `add-member-button` |
-| Loans list | `loans-list` |
-| Loan row | `loan-item-{id}` |
-| Loan status badge | `loan-status-badge-{id}` |
-| Loan fee text | `loan-fee-{id}` |
-| Return button (detail) | `return-button-{loanId}` |
-| Reservations list | `reservations-list` |
-| Reservation row | `reservation-item-{id}` |
-| Cancel reservation button | `cancel-reservation-button-{id}` |
-| Global search input | `search-input` |
-| Re-seed button | `Reset and reseed database` |
-| Reports screen | `reports-screen` |
-| Stat cards | `stat-total-books`, `stat-active-loans`, etc. |
-| Bottom tab — Books | accessibility label `tab-books` |
-| Bottom tab — Members | accessibility label `tab-members` |
-| Bottom tab — Loans | accessibility label `tab-loans` |
-| Bottom tab — Reservations | accessibility label `tab-reservations` |
-| Bottom tab — More | accessibility label `tab-more` |
+1. Click on elements in the Books tab and note their `id` and `content-desc` attributes
+2. Navigate to the other tabs (Members, Loans, Reservations, More) and inspect elements there
+3. In the More tab, tap **Reset / Re-seed Database** and confirm — this resets the app data to its original state
 
 ---
 
-## Block 3 — Setting Up WebdriverIO (10 min)
+## Block 3 — Setting Up WebdriverIO
 
 Now that we know the locators, let's automate.
 
@@ -225,7 +175,6 @@ export const config: WebdriverIO.Config = {
 
 describe('Library App - Smoke', () => {
   it('app launches and shows the Books list', async () => {
-    // Find the books list by its testID (content-desc on Android)
     const booksList = await $('android=new UiSelector().resourceId("books-list")');
     await booksList.waitForDisplayed({ timeout: 30_000 });
     await expect(booksList).toBeDisplayed();
@@ -243,7 +192,7 @@ npx wdio run wdio.conf.ts
 
 ---
 
-## Block 4 — Writing Test Cases (15 min)
+## Block 4 — Writing Test Cases
 
 In this block we build a single test file (`tests/library.test.ts`) step by step. The file has three parts:
 
@@ -263,18 +212,13 @@ Tests that mutate data (borrow a book, add a member) leave the app in a differen
 // $, $$, browser, driver, and expect are WDIO globals — no imports needed.
 
 async function reseedApp() {
-  // Navigate to More tab
   await $('android=new UiSelector().description("tab-more")').click();
-
-  // Tap the re-seed button (accessibility label: "Reset and reseed database")
   await $('android=new UiSelector().description("Reset and reseed database")').click();
 
-  // Confirm in the native Alert (Android shows uppercase button text)
   const confirmBtn = await $('android=new UiSelector().text("RESET & RESEED")');
   await confirmBtn.waitForDisplayed({ timeout: 10_000 });
   await confirmBtn.click();
 
-  // Navigate back to Books tab
   await $('android=new UiSelector().description("tab-books")').click();
 }
 ```
@@ -286,10 +230,8 @@ After the `reseedApp` function, we open a `describe` block with a `before` hook 
 ```typescript
 describe('Library App - Full Suite', () => {
   before(async () => {
-    // Wait for app to load
     const booksList = await $('android=new UiSelector().resourceId("books-list")');
     await booksList.waitForDisplayed({ timeout: 30_000 });
-    // Reseed to guarantee clean state
     await reseedApp();
   });
 ```
@@ -369,7 +311,11 @@ All `it(...)` blocks go inside the `describe`. Here are the four scenarios:
 
 ```typescript
   it('reserving a book creates a pending reservation', async () => {
+    // Tap tab-books twice: first tap switches to the Books tab,
+    // second tap pops back to the book list (previous test left us in a detail view)
     await $('android=new UiSelector().description("tab-books")').click();
+    await $('android=new UiSelector().description("tab-books")').click();
+
     await $('android=new UiSelector().resourceId("book-item-4")').click();
     await $('android=new UiSelector().resourceId("reserve-button-4")').click();
 
@@ -385,12 +331,12 @@ All `it(...)` blocks go inside the `describe`. Here are the four scenarios:
     const resList = await $('android=new UiSelector().resourceId("reservations-list")');
     await expect(resList).toBeDisplayed();
   });
-});  // ← closes the describe block
+});  // closes the describe block
 ```
 
 ---
 
-## Block 5 — Running the Suite & Viewing Results (5 min)
+## Block 5 — Running the Suite & Viewing Results
 
 ### Run the full suite
 ```bash
@@ -418,7 +364,7 @@ After the run, go to https://app.saucelabs.com/test-results — you will see:
 ### Interpreting results
 - **PASS** — assertion met
 - **FAIL** — assertion not met; watch the video replay to see exactly what happened on device
-- **TIMEOUT** — element not found within the wait timeout; check the `testID` spelling
+- **TIMEOUT** — element not found within the wait timeout; check the locator spelling
 - **Error: invalid credentials** — check `user` and `key` in `wdio.conf.ts`
 
 ### Common issues & fixes
@@ -432,7 +378,7 @@ After the run, go to https://app.saucelabs.com/test-results — you will see:
 | APK not found | Wrong filename in `storage:filename` | Re-upload and verify the filename in App Management |
 
 ### Discussion prompts
-1. Why is `testID` (`content-desc`) better than XPath for production test suites?
+1. Why are stable locators (`resourceId`, `description`) better than XPath for production test suites?
 2. What would break if a developer renamed `book-item-{id}` to `bookRow-{id}`?
 3. What are the advantages of running on Sauce Labs vs a local emulator?
 4. How would you integrate this suite into a CI/CD pipeline so it runs on every pull request?
@@ -496,8 +442,8 @@ const el = await $('android=new UiSelector().resourceId("books-list")');
 await el.waitForDisplayed({ timeout: 30_000 });
 
 // Get text from an element
-const el = await $('android=new UiSelector().resourceId("book-copies-1")');
-const text = await el.getText();
+const copiesEl = await $('android=new UiSelector().resourceId("book-copies-1")');
+const text = await copiesEl.getText();
 
 // Tap / click an element
 await $('android=new UiSelector().resourceId("borrow-button-1")').click();
@@ -593,7 +539,11 @@ describe('Library App - Full Suite', () => {
   });
 
   it('reserving a book creates a pending reservation', async () => {
+    // Tap tab-books twice: first tap switches to the Books tab,
+    // second tap pops back to the book list (previous test left us in a detail view)
     await $('android=new UiSelector().description("tab-books")').click();
+    await $('android=new UiSelector().description("tab-books")').click();
+
     await $('android=new UiSelector().resourceId("book-item-4")').click();
     await $('android=new UiSelector().resourceId("reserve-button-4")').click();
 
